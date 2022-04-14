@@ -400,7 +400,7 @@ static bool shadow_memory_read_page_frame(shadow_memory_t* self, uint64_t addres
     for(uint8_t i = 0; i < self->ram_regions_num; i++){
         if(address >= self->ram_regions[i].base && address < (self->ram_regions[i].base + self->ram_regions[i].size)){
             void* snapshot_ptr = self->ram_regions[i].snapshot_region_ptr + (address-self->ram_regions[i].base);
-            memcpy(ptr+offset, snapshot_ptr+offset, size);
+            memcpy(ptr, snapshot_ptr+offset, size);
             return true;
         }
     }
