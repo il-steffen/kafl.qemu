@@ -3088,7 +3088,7 @@ int main(int argc, char **argv, char **envp)
                 if (!opts) {
                     exit(1);
                 }
-                fast_vm_reload_opt_arg = optarg;
+                fast_vm_reload_opt_arg = (char*) optarg;
                 fast_vm_reload = true;
                 break;
 #endif
