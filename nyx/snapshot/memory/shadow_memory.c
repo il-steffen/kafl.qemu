@@ -200,6 +200,8 @@ shadow_memory_t* shadow_memory_init_from_snapshot(const char* snapshot_folder, b
             exit(1);
         }
     }
+
+    // Why ???
     assert(self->memory_size == ftell(file_mem_dump));
     fseek(file_mem_dump, 0L, SEEK_SET);
 
