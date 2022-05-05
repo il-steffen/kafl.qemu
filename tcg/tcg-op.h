@@ -29,6 +29,23 @@
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
 
+#ifdef QEMU_SYX
+/* Slightly questionable macros to save typing and for (arguably) clearer code:
+ * SYM_HELPER_BINARY_32(add) generates a helper call to "sym_add_i32", expecting
+ * TCGv_i32 variables ret, arg1 and arg2 to exist in the environment.
+ * SYM_HELPER_BINARY_64 generates the analogous code for 64-bit helpers. */
+
+#define SYM_HELPER_BINARY_32(name)                                              \
+    gen_helper_sym_ ## name ## _i32(tcgv_i32_expr(ret),                         \
+                           arg1, tcgv_i32_expr(arg1),                           \
+                           arg2, tcgv_i32_expr(arg2))
+#define SYM_HELPER_BINARY_64(name)                                              \
+    gen_helper_sym_ ## name ## _i64(tcgv_i64_expr(ret),                         \
+                           arg1, tcgv_i64_expr(arg1),                           \
+                           arg2, tcgv_i64_expr(arg2))
+#endif
+
+
 /* Basic output routines.  Not for general consumption.  */
 
 void tcg_gen_op1(TCGOpcode, TCGArg);
@@ -41,6 +58,13 @@ void tcg_gen_op6(TCGOpcode, TCGArg, TCGArg, TCGArg, TCGArg, TCGArg, TCGArg);
 void vec_gen_2(TCGOpcode, TCGType, unsigned, TCGArg, TCGArg);
 void vec_gen_3(TCGOpcode, TCGType, unsigned, TCGArg, TCGArg, TCGArg);
 void vec_gen_4(TCGOpcode, TCGType, unsigned, TCGArg, TCGArg, TCGArg, TCGArg);
+
+#ifdef QEMU_SYX
+void tcg_gen_ldst_op_i64(TCGOpcode opc, TCGv_i64 val,
+                         TCGv_ptr base, TCGArg offset);
+void tcg_gen_ldst_op_i32(TCGOpcode opc, TCGv_i32 val,
+                         TCGv_ptr base, TCGArg offset);
+#endif
 
 static inline void tcg_gen_op1_i32(TCGOpcode opc, TCGv_i32 a1)
 {
@@ -106,6 +130,7 @@ static inline void tcg_gen_op3i_i64(TCGOpcode opc, TCGv_i64 a1,
     tcg_gen_op3(opc, tcgv_i64_arg(a1), tcgv_i64_arg(a2), a3);
 }
 
+#ifndef QEMU_SYX
 static inline void tcg_gen_ldst_op_i32(TCGOpcode opc, TCGv_i32 val,
                                        TCGv_ptr base, TCGArg offset)
 {
@@ -117,6 +142,7 @@ static inline void tcg_gen_ldst_op_i64(TCGOpcode opc, TCGv_i64 val,
 {
     tcg_gen_op3(opc, tcgv_i64_arg(val), tcgv_ptr_arg(base), offset);
 }
+#endif
 
 static inline void tcg_gen_op4_i32(TCGOpcode opc, TCGv_i32 a1, TCGv_i32 a2,
                                    TCGv_i32 a3, TCGv_i32 a4)
@@ -339,18 +365,28 @@ void tcg_gen_abs_i32(TCGv_i32, TCGv_i32);
 
 static inline void tcg_gen_discard_i32(TCGv_i32 arg)
 {
+#ifdef QEMU_SYX
+    tcg_gen_op1_i64(INDEX_op_discard, tcgv_i32_expr_num(arg));
+#endif
     tcg_gen_op1_i32(INDEX_op_discard, arg);
 }
 
 static inline void tcg_gen_mov_i32(TCGv_i32 ret, TCGv_i32 arg)
 {
     if (ret != arg) {
+#ifdef QEMU_SYX
+        tcg_gen_op2_i64(INDEX_op_mov_i64, tcgv_i32_expr_num(ret),
+                        tcgv_i32_expr_num(arg));
+#endif
         tcg_gen_op2_i32(INDEX_op_mov_i32, ret, arg);
     }
 }
 
 static inline void tcg_gen_movi_i32(TCGv_i32 ret, int32_t arg)
 {
+#ifdef QEMU_SYX
+    tcg_gen_op2i_i64(INDEX_op_movi_i64, tcgv_i32_expr_num(ret), 0);
+#endif
     tcg_gen_op2i_i32(INDEX_op_movi_i32, ret, arg);
 }
 
@@ -404,52 +440,82 @@ static inline void tcg_gen_st_i32(TCGv_i32 arg1, TCGv_ptr arg2,
 
 static inline void tcg_gen_add_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(add);
+#endif
     tcg_gen_op3_i32(INDEX_op_add_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_sub_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(sub);
+#endif
     tcg_gen_op3_i32(INDEX_op_sub_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_and_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(and);
+#endif
     tcg_gen_op3_i32(INDEX_op_and_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_or_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(or);
+#endif
     tcg_gen_op3_i32(INDEX_op_or_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_xor_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(xor);
+#endif
     tcg_gen_op3_i32(INDEX_op_xor_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_shl_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(shift_left);
+#endif
     tcg_gen_op3_i32(INDEX_op_shl_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_shr_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(shift_right);
+#endif
     tcg_gen_op3_i32(INDEX_op_shr_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_sar_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(arithmetic_shift_right);
+#endif
     tcg_gen_op3_i32(INDEX_op_sar_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_mul_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_32(mul);
+#endif
     tcg_gen_op3_i32(INDEX_op_mul_i32, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_neg_i32(TCGv_i32 ret, TCGv_i32 arg)
 {
     if (TCG_TARGET_HAS_neg_i32) {
+#ifdef QEMU_SYX
+        gen_helper_sym_neg(tcgv_i32_expr(ret), tcgv_i32_expr(arg));
+#endif
         tcg_gen_op2_i32(INDEX_op_neg_i32, ret, arg);
     } else {
         tcg_gen_subfi_i32(ret, 0, arg);
@@ -459,6 +525,9 @@ static inline void tcg_gen_neg_i32(TCGv_i32 ret, TCGv_i32 arg)
 static inline void tcg_gen_not_i32(TCGv_i32 ret, TCGv_i32 arg)
 {
     if (TCG_TARGET_HAS_not_i32) {
+#ifdef QEMU_SYX
+        gen_helper_sym_not(tcgv_i32_expr(ret), tcgv_i32_expr(arg));
+#endif
         tcg_gen_op2_i32(INDEX_op_not_i32, ret, arg);
     } else {
         tcg_gen_xori_i32(ret, arg, -1);
@@ -540,18 +609,28 @@ void tcg_gen_abs_i64(TCGv_i64, TCGv_i64);
 #if TCG_TARGET_REG_BITS == 64
 static inline void tcg_gen_discard_i64(TCGv_i64 arg)
 {
+#ifdef QEMU_SYX
+    tcg_gen_op1_i64(INDEX_op_discard, tcgv_i64_expr_num(arg));
+#endif
     tcg_gen_op1_i64(INDEX_op_discard, arg);
 }
 
 static inline void tcg_gen_mov_i64(TCGv_i64 ret, TCGv_i64 arg)
 {
     if (ret != arg) {
+#ifdef QEMU_SYX
+        tcg_gen_op2_i64(INDEX_op_mov_i64, tcgv_i64_expr_num(ret),
+                        tcgv_i64_expr_num(arg));
+#endif
         tcg_gen_op2_i64(INDEX_op_mov_i64, ret, arg);
     }
 }
 
 static inline void tcg_gen_movi_i64(TCGv_i64 ret, int64_t arg)
 {
+#ifdef QEMU_SYX
+    tcg_gen_op2i_i64(INDEX_op_movi_i64, tcgv_i64_expr_num(ret), 0);
+#endif
     tcg_gen_op2i_i64(INDEX_op_movi_i64, ret, arg);
 }
 
@@ -622,47 +701,74 @@ static inline void tcg_gen_st_i64(TCGv_i64 arg1, TCGv_ptr arg2,
 }
 
 static inline void tcg_gen_add_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
-{
+{    
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(add);
+#endif
     tcg_gen_op3_i64(INDEX_op_add_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_sub_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(sub);
+#endif
     tcg_gen_op3_i64(INDEX_op_sub_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_and_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(and);
+#endif
     tcg_gen_op3_i64(INDEX_op_and_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_or_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(or);
+#endif
     tcg_gen_op3_i64(INDEX_op_or_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_xor_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(xor);
+#endif
     tcg_gen_op3_i64(INDEX_op_xor_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_shl_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(shift_left);
+#endif
     tcg_gen_op3_i64(INDEX_op_shl_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_shr_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(shift_right);
+#endif
     tcg_gen_op3_i64(INDEX_op_shr_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_sar_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(arithmetic_shift_right);
+#endif
     tcg_gen_op3_i64(INDEX_op_sar_i64, ret, arg1, arg2);
 }
 
 static inline void tcg_gen_mul_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
 {
+#ifdef QEMU_SYX
+    SYM_HELPER_BINARY_64(mul);
+#endif
     tcg_gen_op3_i64(INDEX_op_mul_i64, ret, arg1, arg2);
 }
 #else /* TCG_TARGET_REG_BITS == 32 */
@@ -719,6 +825,9 @@ void tcg_gen_mul_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2);
 static inline void tcg_gen_neg_i64(TCGv_i64 ret, TCGv_i64 arg)
 {
     if (TCG_TARGET_HAS_neg_i64) {
+#ifdef QEMU_SYX
+        gen_helper_sym_neg(tcgv_i64_expr(ret), tcgv_i64_expr(arg));
+#endif
         tcg_gen_op2_i64(INDEX_op_neg_i64, ret, arg);
     } else {
         tcg_gen_subfi_i64(ret, 0, arg);

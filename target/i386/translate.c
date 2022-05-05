@@ -5067,6 +5067,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             }
             next_eip = s->pc - s->cs_base;
             tcg_gen_movi_tl(s->T1, next_eip);
+#ifdef QEMU_SYX
+            gen_helper_sym_notify_call(s->T1);
+#endif
             gen_push_v(s, s->T1);
             gen_op_jmp_v(s->T0);
             gen_bnd_jmp(s);
@@ -6513,6 +6516,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
         val = x86_ldsw_code(env, s);
         ot = gen_pop_T0(s);
         gen_stack_update(s, val + (1 << ot));
+#ifdef QEMU_SYX
+        gen_helper_sym_notify_return(s->T0);
+#endif
         /* Note that gen_pop_T0 uses a zero-extending load.  */
         gen_op_jmp_v(s->T0);
         gen_bnd_jmp(s);
@@ -6521,7 +6527,10 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
     case 0xc3: /* ret */
         ot = gen_pop_T0(s);
         gen_pop_update(s, ot);
-        /* Note that gen_pop_T0 uses a zero-extending load.  */
+#ifdef QEMU_SYX
+        gen_helper_sym_notify_return(s->T0);
+#endif
+/* Note that gen_pop_T0 uses a zero-extending load.  */
         gen_op_jmp_v(s->T0);
         gen_bnd_jmp(s);
         gen_jr(s, s->T0);
@@ -6588,6 +6597,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
                 tval &= 0xffffffff;
             }
             tcg_gen_movi_tl(s->T0, next_eip);
+#ifdef QEMU_SYX
+        gen_helper_sym_notify_call(s->T0);
+#endif
             gen_push_v(s, s->T0);
             gen_bnd_jmp(s);
             gen_jmp(s, tval);
@@ -7359,6 +7371,10 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
                 tcg_gen_andi_tl(s->T0, s->T0, 0xffffff);
             }
             gen_op_st_v(s, CODE64(s) + MO_32, s->T0, s->A0);
+            break;
+        
+        case 0xc1: /* vmcall */
+            gen_helper_vmcall(cpu_env);
             break;
 
         case 0xc8: /* monitor */

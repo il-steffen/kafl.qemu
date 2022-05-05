@@ -1621,6 +1621,11 @@ struct X86CPU {
     CPUNegativeOffsetState neg;
     CPUX86State env;
 
+    #ifdef QEMU_SYX
+    /* space for symbolic expressions corresponding to env */
+    void *env_exprs[512 + 1];   /* TCG_MAX_TEMPS + 1 (for NULL) */
+    #endif
+
     uint32_t hyperv_spinlock_attempts;
     char *hyperv_vendor_id;
     bool hyperv_synic_kvm_only;

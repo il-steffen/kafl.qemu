@@ -79,6 +79,10 @@ static int check_exception(CPUX86State *env, int intno, int *error_code,
     return intno;
 }
 
+static void raise_exception_vmcall(void) {
+    printf("VMCALL!\n");
+}
+
 /*
  * Signal an interruption. It is executed in the main CPU loop.
  * is_int is TRUE if coming from the int instruction. next_eip is the
@@ -96,6 +100,10 @@ static void QEMU_NORETURN raise_interrupt2(CPUX86State *env, int intno,
         cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno,
                                       error_code, retaddr);
         intno = check_exception(env, intno, &error_code, retaddr);
+
+        if (intno == 6) {
+            raise_exception_vmcall();
+        }
     } else {
         cpu_svm_check_intercept_param(env, SVM_EXIT_SWINT, 0, retaddr);
     }

@@ -66,11 +66,28 @@ static inline void glue(gen_helper_, name)(dh_retvar_decl(ret)          \
   tcg_gen_callN(HELPER(name), dh_retvar(ret), 6, args);                 \
 }
 
+#ifdef QEMU_SYX
+#define DEF_HELPER_FLAGS_7(name, flags, ret, t1, t2, t3, t4, t5, t6, t7)\
+static inline void glue(gen_helper_, name)(dh_retvar_decl(ret)          \
+    dh_arg_decl(t1, 1),  dh_arg_decl(t2, 2), dh_arg_decl(t3, 3),        \
+    dh_arg_decl(t4, 4), dh_arg_decl(t5, 5), dh_arg_decl(t6, 6),         \
+    dh_arg_decl(t7, 7))                                                 \
+{                                                                       \
+  TCGTemp *args[7] = { dh_arg(t1, 1), dh_arg(t2, 2), dh_arg(t3, 3),     \
+                     dh_arg(t4, 4), dh_arg(t5, 5), dh_arg(t6, 6),       \
+                     dh_arg(t7, 7) };                                   \
+  tcg_gen_callN(HELPER(name), dh_retvar(ret), 7, args);                 \
+}
+#endif
+
 #include "helper.h"
 #include "trace/generated-helpers.h"
 #include "trace/generated-helpers-wrappers.h"
 #include "tcg-runtime.h"
 #include "plugin-helpers.h"
+#ifdef QEMU_SYX
+#include "tcg-runtime-sym.h"
+#endif
 
 #undef DEF_HELPER_FLAGS_0
 #undef DEF_HELPER_FLAGS_1
@@ -79,6 +96,9 @@ static inline void glue(gen_helper_, name)(dh_retvar_decl(ret)          \
 #undef DEF_HELPER_FLAGS_4
 #undef DEF_HELPER_FLAGS_5
 #undef DEF_HELPER_FLAGS_6
+#ifdef QEMU_SYX
+#undef DEF_HELPER_FLAGS_7
+#endif
 #undef GEN_HELPER
 
 #endif /* HELPER_GEN_H */

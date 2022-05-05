@@ -65,7 +65,7 @@ configure_qemu()
 
   case $1 in
     "dynamic")
-      $QEMU_CONFIGURE --enable-nyx
+      $QEMU_CONFIGURE --enable-nyx --enable-syx
       ;;
     "debug")
       $QEMU_CONFIGURE --enable-nyx --enable-sanitizers --enable-debug --enable-debug-syx

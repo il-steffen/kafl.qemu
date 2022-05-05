@@ -65,6 +65,11 @@
 
 #include "disas/capstone.h"
 
+#ifdef QEMU_SYX
+#define SymExpr void*
+#include "RuntimeCommon.h"
+#endif
+
 #ifdef QEMU_NYX
 #define NYX_PT_CPU_MODEL "Intel Core (Haswell)            NYX vCPU (PT)"
 #define NYX_NO_PT_CPU_MODEL "Intel Core (Haswell)            NYX vCPU (NO-PT)"
@@ -6850,6 +6855,11 @@ static void x86_cpu_initfn(Object *obj)
     X86CPUClass *xcc = X86_CPU_GET_CLASS(obj);
     CPUX86State *env = &cpu->env;
     FeatureWord w;
+
+#ifdef QEMU_SYX
+    memset(cpu->env_exprs, 0, sizeof(cpu->env_exprs));
+    _sym_register_expression_region(cpu->env_exprs, sizeof(cpu->env_exprs));
+#endif
 
     env->nr_dies = 1;
     cpu_set_cpustate_pointers(cpu);

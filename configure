@@ -391,6 +391,7 @@ rdma=""
 pvrdma=""
 gprof="no"
 debug_tcg="no"
+debug_syx="no"
 debug="no"
 sanitizers="no"
 fortify_source=""
@@ -408,6 +409,8 @@ prefix="/usr/local"
 mandir="\${prefix}/share/man"
 datadir="\${prefix}/share"
 firmwarepath="\${prefix}/share/qemu-firmware"
+symcc_source=""
+symcc_build=""
 qemu_docdir="\${prefix}/share/doc/qemu"
 bindir="\${prefix}/bin"
 libdir="\${prefix}/lib"
@@ -955,6 +958,8 @@ for opt do
   ;;
   --enable-nyx-flto) nyx_flto="yes"
   ;;
+  --enable-syx) syx="yes"
+  ;;
   --version|-V) exec cat $source_path/VERSION
   ;;
   --prefix=*) prefix="$optarg"
@@ -1055,6 +1060,10 @@ for opt do
   ;;
   --firmwarepath=*) firmwarepath="$optarg"
   ;;
+  --symcc-source*) symcc_source="$optarg"
+  ;;
+  --symcc-build*) symcc_build="$optarg"
+  ;;
   --host=*|--build=*|\
   --disable-dependency-tracking|\
   --sbindir=*|--sharedstatedir=*|\
@@ -1100,6 +1109,8 @@ for opt do
   --enable-debug-tcg) debug_tcg="yes"
   ;;
   --disable-debug-tcg) debug_tcg="no"
+  ;;
+  --enable-debug-syx) debug_syx="yes"
   ;;
   --enable-debug)
       # Enable debugging options that aren't excessively noisy
@@ -1689,6 +1700,8 @@ Advanced options (experts only):
   --sysconfdir=PATH        install config in PATH$confsuffix
   --localstatedir=PATH     install local state in PATH (set at runtime on win32)
   --firmwarepath=PATH      search PATH for firmware files
+  --symcc-source=PATH      PATH to SymCC source code root directory
+  --symcc-build=PATH       PATH to the build directory of SymCC with Qsym backend
   --with-confsuffix=SUFFIX suffix for QEMU data inside datadir/libdir/sysconfdir [$confsuffix]
   --with-pkgversion=VERS   use specified string as sub-version of the package
   --enable-debug           enable common debug build options
@@ -1735,6 +1748,7 @@ disabled with --disable-FEATURE, default is enabled if available:
   nyx             build QEMU-NYX
   nyx-static      statically link libxdc and libcapstone4
   nyx-flto        enable LTO 
+  syx             build QEMU-SYX (based on SymQEMU)
 
   system          all system emulation targets
   user            supported user emulation targets
@@ -5129,6 +5143,24 @@ case "$capstone" in
 esac
 
 ##########################################
+# SymCC
+
+if test "$syx" = "yes" ; then
+  if test -e "${symcc_source}/runtime/RuntimeCommon.h"; then
+      QEMU_CFLAGS="$QEMU_CFLAGS -I${symcc_source}/runtime"
+  else
+      feature_not_found "SymCC (source)" "Point --symcc-source to the SymCC source code"
+  fi
+
+  if test -e "${symcc_build}/SymRuntime-prefix/src/SymRuntime-build/libSymRuntime.so"; then
+      libs_cpu="-L${symcc_build}/SymRuntime-prefix/src/SymRuntime-build -lSymRuntime $libs_cpu"
+      libs_cpu="-Wl,-rpath,${symcc_build}/SymRuntime-prefix/src/SymRuntime-build $libs_cpu"
+  else
+      feature_not_found "SymCC (runtime)" "Point --symcc-build to the SymCC build directory"
+  fi
+fi
+
+##########################################
 # check if we have fdatasync
 
 fdatasync=no
@@ -6104,6 +6136,10 @@ write_c_skeleton
 if test "$nyx" = "yes" ; then
   CFLAGS="-DNESTED_PATCH -Wno-error=maybe-uninitialized -DQEMU_NYX -g -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $QEMU_CFLAGS"
 
+  if test "$syx" = "yes" ; then
+    CFLAGS="-DQEMU_SYX $CFLAGS"
+  fi
+
   if test "$nyx_static" = "yes" ; then
     LIBS="-l:libcapstone.a -l:libxdc.a $LIBS"
   else
@@ -6447,6 +6483,8 @@ QEMU_CFLAGS="$pixman_cflags $fdt_cflags $QEMU_CFLAGS"
 QEMU_LDFLAGS="$fdt_ldflags $QEMU_LDFLAGS"
 libs_softmmu="$pixman_libs $libs_softmmu"
 
+echo "SymCC source path $(eval echo $symcc_source)"
+echo "SymCC build path  $(eval echo $symcc_build)"
 echo "Install prefix    $prefix"
 echo "BIOS directory    $(eval echo $qemu_datadir)"
 echo "firmware path     $(eval echo $firmwarepath)"
@@ -6705,6 +6743,9 @@ fi
 if test "$debug_tcg" = "yes" ; then
   echo "CONFIG_DEBUG_TCG=y" >> $config_host_mak
 fi
+if test "$debug_syx" = "yes" ; then
+  echo "CONFIG_DEBUG_SYX=y" >> $config_host_mak
+fi
 if test "$strip_opt" = "yes" ; then
   echo "STRIP=${strip}" >> $config_host_mak
 fi
@@ -6879,6 +6920,10 @@ fi
 
 if test "$nyx" = "yes" ; then
   echo "CONFIG_QEMU_NYX=y" >> $config_host_mak
+fi
+
+if test "$syx" = "yes" ; then
+  echo "CONFIG_QEMU_SYX=y" >> $config_host_mak
 fi
 
 if test "$eventfd" = "yes" ; then
