@@ -53,7 +53,6 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "nyx/helpers.h"
 #include "nyx/nested_hypercalls.h"
 #include "nyx/fast_vm_reload_sync.h"
-#include "nyx/syx.h"
 
 #include "nyx/redqueen.h"
 #include "nyx/hypercall/configuration.h"
@@ -833,17 +832,6 @@ err_out1:
 	free(host_path);
 }
 
-void handle_hypercall_kafl_nyx_tcg_run(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
-	SYX_PRINTF("Saving snapshot...\n");
-	Error *err = NULL;
-	if (save_snapshot("/test123", &err) != 0) {
-		error_report_err(err);
-		error_report("Error while snapshoting in SYX syscall...");
-		SYX_PRINTF("ERROR SNAPSHOT!!!\n");
-	}
-	SYX_PRINTF("End of SYX handler.\n");
-}
-
 static void handle_hypercall_kafl_persist_page_past_snapshot(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
 
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_PERSIST_PAGE_PAST_SNAPSHOT")){
@@ -1058,10 +1046,6 @@ int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall
 			break;
 		case KVM_EXIT_KAFL_PERSIST_PAGE_PAST_SNAPSHOT:
 			handle_hypercall_kafl_persist_page_past_snapshot(run, cpu, arg);
-			ret = 0;
-			break;
-		case KVM_EXIT_KAFL_SYX_TCG_RUN:
-			handle_hypercall_kafl_nyx_tcg_run(run, cpu, arg);
 			ret = 0;
 			break;
 	}

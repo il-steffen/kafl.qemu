@@ -1,6 +1,7 @@
 /*
 
 Copyright (C) 2017 Sergej Schumilo
+Copyright (C) 2022 Intel Corporation
 
 This file is part of QEMU-PT (kAFL).
 
@@ -119,6 +120,9 @@ void handle_hypercall_kafl_panic(struct kvm_run *run, CPUState *cpu, uint64_t hy
 
 void handle_hypercall_kafl_page_dump_bp(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg, uint64_t page);
 
+
+/* syx hypercall handlers */
+void handle_hypercall_kafl_nyx_tcg_run(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
 
 void hprintf(char* msg);
 
