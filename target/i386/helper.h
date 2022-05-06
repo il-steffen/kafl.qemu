@@ -231,3 +231,4 @@ DEF_HELPER_1(rdrand, tl, env)
 
 /* VMX */
 DEF_HELPER_1(vmcall, void, env)
+DEF_HELPER_2(check_syx_mmio, void, env, ptr)

@@ -8,4 +8,4 @@ obj-$(CONFIG_USER_ONLY) += user-exec.o
 obj-$(call lnot,$(CONFIG_SOFTMMU)) += user-exec-stub.o
 obj-$(CONFIG_PLUGIN) += plugin-gen.o
 
-obj-$(CONFIG_QEMU_SYX) += tcg-runtime-sym.o
+obj-$(CONFIG_QEMU_SYX) += tcg-runtime-sym.o tcg-runtime-syx.o
