@@ -59,6 +59,9 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "nyx/hypercall/debug.h"
 #include "nyx/helpers.h"
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx.h"
+#endif
 
 //#define DEBUG_HPRINTF
 #define HPRINTF_SIZE	0x1000
@@ -845,6 +848,36 @@ static void handle_hypercall_kafl_persist_page_past_snapshot(struct kvm_run *run
 	fast_reload_blacklist_page(get_fast_reload_snapshot(), phys_addr);
 }
 
+#ifdef QEMU_SYX
+static void handle_hypercall_kafl_syx_init(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+	qemu_mutex_lock_iothread();
+	syx_init();
+	qemu_mutex_unlock_iothread();
+}
+
+static void handle_hypercall_kafl_syx_add_memory_access(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+	qemu_mutex_lock_iothread();
+	nyx_get_registers_fast(cpu);
+
+    X86CPU *x86_cpu = X86_CPU(cpu);
+    CPUX86State *env = &x86_cpu->env;
+
+	vaddr vaddr_to_hook = env->regs[R_ECX];
+	size_t mem_len = env->regs[R_EDX];
+
+	hwaddr page_phys_addr_to_hook = get_paging_phys_addr(cpu, env->cr[3], vaddr_to_hook);
+
+	syx_event_add_memory_access(page_phys_addr_to_hook, mem_len);
+	qemu_mutex_unlock_iothread();
+}
+
+static void handle_hypercall_kafl_syx_disable_memory_access(run, cpu, arg) {
+	qemu_mutex_lock_iothread();
+	syx_event_memory_access_disable();
+	qemu_mutex_unlock_iothread();
+}
+#endif
+
 int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall, uint64_t arg){
 	int ret = -1;
 	//fprintf(stderr, "%s -> %ld\n", __func__, hypercall);
@@ -1048,6 +1081,21 @@ int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall
 			handle_hypercall_kafl_persist_page_past_snapshot(run, cpu, arg);
 			ret = 0;
 			break;
+#ifdef QEMU_SYX
+		/* SYX hypercalls */
+		case KVM_EXIT_KAFL_SYX_INIT:
+			handle_hypercall_kafl_syx_init(run, cpu, arg);
+			ret = 0;
+			break;
+		case KVM_EXIT_KAFL_SYX_ADD_MEMORY_ACCESS:
+			handle_hypercall_kafl_syx_add_memory_access(run, cpu, arg);
+			ret = 0;
+			break;
+		case KVM_EXIT_KAFL_SYX_DISABLE_MEMORY_ACCESS:
+			handle_hypercall_kafl_syx_disable_memory_access(run, cpu, arg);
+			ret = 0;
+			break;
+#endif
 	}
 	return ret;
 }

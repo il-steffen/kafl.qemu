@@ -22,18 +22,27 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
+
+#include "exec/hwaddr.h"
 
 #define AUX_BUFFER_SIZE 4096
 
 #define AUX_MAGIC 0x54502d554d4551
 
-#define QEMU_PT_VERSION 3 /* let's start at 1 for the initial version using the aux buffer */
+/**
+ * Version 1: Initial version
+ * Version 4: qemu SYX initial version
+ */
+#define QEMU_PT_VERSION 4 /* let's start at 1 for the initial version using the aux buffer */
 
 #define HEADER_SIZE 128
 #define CAP_SIZE 256
 #define CONFIG_SIZE 512
 #define STATE_SIZE 512
-#define MISC_SIZE 4096-(HEADER_SIZE+CAP_SIZE+CONFIG_SIZE+STATE_SIZE)
+#define MISC_SIZE AUX_BUFFER_SIZE-(HEADER_SIZE+CAP_SIZE+CONFIG_SIZE+STATE_SIZE)
+
+static_assert(HEADER_SIZE + CAP_SIZE + CONFIG_SIZE + STATE_SIZE <= AUX_BUFFER_SIZE, "Auxiliary Buffer is too small");
 
 #define ADD_PADDING(max, type) uint8_t type ## _padding [max - sizeof(type)]
 
@@ -46,6 +55,7 @@ enum nyx_result_codes {
   rc_aborted = 5,
   rc_sanitizer = 6, 
   rc_starved = 7,
+  rc_syx_start = 8
 };
 
 typedef struct auxilary_buffer_header_s{
@@ -120,6 +130,9 @@ typedef struct auxilary_buffer_result_s{
   uint32_t runtime_usec;
   uint32_t runtime_sec;
 
+  uint64_t syx_addr;
+  uint32_t syx_len;
+
   /* more to come */
 } __attribute__((packed)) auxilary_buffer_result_t;
 
@@ -128,6 +141,12 @@ typedef struct auxilary_buffer_misc_s{
   uint8_t data;
   /* non yet */
 } __attribute__((packed)) auxilary_buffer_misc_t;
+
+static_assert(sizeof(auxilary_buffer_header_t) <= HEADER_SIZE, "auxilary buffer size (header) error");
+static_assert(sizeof(auxilary_buffer_cap_t) <= CAP_SIZE, "auxilary buffer size (cap) error");
+static_assert(sizeof(auxilary_buffer_config_t) <= CONFIG_SIZE, "auxilary buffer size (config) error");
+static_assert(sizeof(auxilary_buffer_result_t) <= STATE_SIZE, "auxilary buffer size (result) error");
+static_assert(sizeof(auxilary_buffer_misc_t) <= MISC_SIZE, "auxilary buffer size (misc) error");
 
 typedef struct auxilary_buffer_s{
   auxilary_buffer_header_t header;
@@ -153,6 +172,7 @@ void check_auxiliary_config_buffer(auxilary_buffer_t* auxilary_buffer, auxilary_
 void set_crash_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_asan_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
+void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_addr, unsigned len);
 void set_reload_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_pt_overflow_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_exec_done_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, uint32_t sec, uint32_t usec, uint32_t num_dirty_pages);

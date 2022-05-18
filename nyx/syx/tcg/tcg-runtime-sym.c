@@ -303,11 +303,13 @@ static void *sym_load_guest_internal(CPUArchState *env,
                                      target_ulong mmu_idx)
 {
     /* Try an alternative address */
-    if (addr_expr != NULL)
+    if (addr_expr != NULL) {
+        printf("OK!!\n");
         _sym_push_path_constraint(
             _sym_build_equal(
                 addr_expr, _sym_build_integer(addr, sizeof(addr) * 8)),
             true, get_pc(env));
+    }
 
     void *host_addr = tlb_vaddr_to_host(env, addr, MMU_DATA_LOAD, mmu_idx);
     void *memory_expr = _sym_read_memory((uint8_t*)host_addr, load_length, true);

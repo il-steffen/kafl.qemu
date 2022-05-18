@@ -6,6 +6,10 @@
 #include "tcg.h"
 #include "tcg-runtime-syx.h"
 #include "exec/exec-all.h"
+#include "exec/memory.h"
+#include "exec/memattrs.h"
+#include "nyx/memory_access.h"
+#include "nyx/syx/syx.h"
 
 #define SymExpr void*
 #include "RuntimeCommon.h"
@@ -19,10 +23,12 @@ SYXMmioRange* syx_mmio_range_get(size_t idx);
 bool syx_enabled = false;
 SYXState* syx_state = NULL;
 
-void syx_init(vaddr start_addr, size_t len) {
-    SYX_PRINTF("initialization... ");
+void syx_init(CPUX86State* cs, vaddr start_addr, size_t len) {
+    uint8_t* input_buffer = g_new0(uint8_t, len);
 
-    syx_state = g_malloc0(sizeof(SYXState));
+    SYX_PRINTF("initialization... \n");
+
+    syx_state = g_new0(SYXState, 1);
     syx_state->mmio_array = syx_mmio_range_dyn_array_init();
 
     SYXMmioRange mmio_range = {
@@ -33,7 +39,7 @@ void syx_init(vaddr start_addr, size_t len) {
 
     syx_mmio_range_dyn_array_add(&mmio_range);
 
-    _sym_initialize((char*) start_addr, len);
+    _sym_initialize((char*) input_buffer,(char*) start_addr, len);
 
     printf("done.\n");
 }
@@ -65,38 +71,10 @@ void syx_add_mmio(vaddr start_addr, size_t len) {
         .start_addr = start_addr
     };
 
-    _sym_add_input_buffer((void *) start_addr, len);
+    //_sym_add_input_buffer((void *) start_addr, len);
 
     syx_mmio_range_dyn_array_add(&mmio_range);
     printf("Done.\n");
-}
-
-SYXMmioRangeDynArray syx_mmio_range_dyn_array_init(void) {
-    SYXMmioRangeDynArray mmio_range_array;
-
-    mmio_range_array.capacity = MMIO_RANGES_INIT_SIZE;
-    mmio_range_array.mmio_ranges = g_new0(SYXMmioRange, mmio_range_array.capacity);
-    mmio_range_array.len = 0;
-
-    return mmio_range_array;
-}
-
-void syx_mmio_range_dyn_array_add(SYXMmioRange* mmio_range) {
-    if (syx_state->mmio_array.len == syx_state->mmio_array.capacity) {
-        syx_state->mmio_array.capacity *= 2;
-        syx_state->mmio_array.mmio_ranges = g_realloc(syx_state->mmio_array.mmio_ranges, syx_state->mmio_array.capacity);
-    }
-
-    syx_state->mmio_array.mmio_ranges[syx_state->mmio_array.len++] = *mmio_range;
-}
-
-// returns NULL if out of range
-SYXMmioRange* syx_mmio_range_get(size_t idx) {
-    if (idx >= syx_state->mmio_array.len) {
-        return NULL;
-    }
-
-    return &(syx_state->mmio_array.mmio_ranges[idx]);
 }
 
 // Returns -1 if the address is not in the mmio range

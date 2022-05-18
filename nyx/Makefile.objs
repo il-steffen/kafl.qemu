@@ -35,3 +35,9 @@ state/state.o \
 state/snapshot_state.o \
 pt.o
 
+# SYX Extension
+obj-$(CONFIG_QEMU_SYX) += \
+syx/syx.o \
+syx/symbolic-memory.o \
+syx/tcg/tcg-runtime-sym.o \
+syx/kvm/event.o

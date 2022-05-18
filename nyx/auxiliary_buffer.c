@@ -179,6 +179,13 @@ void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer){
   VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_timeout);
 }
 
+void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_addr, unsigned len) {
+  VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_syx_start);
+
+  VOLATILE_WRITE_64(auxilary_buffer->result.syx_addr, start_addr);
+  VOLATILE_WRITE_32(auxilary_buffer->result.syx_len, len);
+}
+
 void set_reload_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer){
   VOLATILE_WRITE_8(auxilary_buffer->result.reloaded, 1);
 }
@@ -194,8 +201,6 @@ void set_exec_done_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, u
   VOLATILE_WRITE_32(auxilary_buffer->result.runtime_usec, usec);
   VOLATILE_WRITE_32(auxilary_buffer->result.dirty_pages, num_dirty_pages);
 }
-
-
 
 void set_hprintf_auxiliary_buffer(auxilary_buffer_t* auxilary_buffer, char* msg, uint32_t len){
   VOLATILE_WRITE_16(auxilary_buffer->misc.len, MIN(len, MISC_SIZE-2));
