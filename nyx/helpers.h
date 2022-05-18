@@ -4,6 +4,7 @@
 
 
 void enable_tcg_mode(void);
+void disable_tcg_mode(void);
 void nyx_get_registers(CPUState *cpu);
 void nyx_get_registers_fast(CPUState *cpu);
 

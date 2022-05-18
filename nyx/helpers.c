@@ -22,7 +22,7 @@ void enable_tcg_mode(void){
 }
 
 void disable_tcg_mode(void){
-	tcg_mode = true;
+	tcg_mode = false;
 }
 
 void nyx_get_registers(CPUState *cpu){

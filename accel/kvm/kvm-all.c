@@ -1916,6 +1916,7 @@ static int kvm_init(MachineState *ms)
         goto err;
     }
 #ifdef QEMU_NYX
+    disable_tcg_mode();
     if (ioctl(s->fd, KVM_CHECK_EXTENSION, KVM_CAP_NYX_PT) != 1 && ioctl(s->fd, KVM_CHECK_EXTENSION, KVM_CAP_NYX_FDL) != 1) {
 
         /* fallback -> use vanilla KVM module instead (no Intel-PT tracing or nested hypercalls at this point) */
