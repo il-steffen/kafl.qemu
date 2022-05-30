@@ -4,7 +4,7 @@
 #include "nyx/memory_access.h"
 #include "nyx/helpers.h"
 
-void handle_hypercall_kafl_get_host_config(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+void handle_hypercall_kafl_get_host_config(CPUState *cpu, uint64_t hypercall_arg){
 	uint64_t vaddr = hypercall_arg;
 	host_config_t config;
 
@@ -30,7 +30,7 @@ void handle_hypercall_kafl_get_host_config(struct kvm_run *run, CPUState *cpu, u
 	GET_GLOBAL_STATE()->get_host_config_done = true;
 }
 
-void handle_hypercall_kafl_set_agent_config(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+void handle_hypercall_kafl_set_agent_config(CPUState *cpu, uint64_t hypercall_arg){
 	uint64_t vaddr = hypercall_arg;
 	agent_config_t config;
 
@@ -62,9 +62,11 @@ void handle_hypercall_kafl_set_agent_config(struct kvm_run *run, CPUState *cpu, 
 		GET_GLOBAL_STATE()->cap_only_reload_mode = !!!config.agent_non_reload_mode; /* fix this */
 		GET_GLOBAL_STATE()->cap_compile_time_tracing = config.agent_tracing;
 
-		if(!GET_GLOBAL_STATE()->cap_compile_time_tracing && !GET_GLOBAL_STATE()->nyx_fdl){
-			fprintf(stderr, "[QEMU-Nyx] Error: Attempt to fuzz target without compile-time instrumentation - Intel PT is not supported on this KVM build!\n");
-			exit(1);
+		if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+			if(!GET_GLOBAL_STATE()->cap_compile_time_tracing && !GET_GLOBAL_STATE()->nyx_fdl){
+				fprintf(stderr, "[QEMU-Nyx] Error: Attempt to fuzz target without compile-time instrumentation - Intel PT is not supported on this KVM build!\n");
+				exit(1);
+			}
 		}
 
 		GET_GLOBAL_STATE()->cap_ijon_tracing = config.agent_ijon_tracing;
@@ -95,11 +97,12 @@ void handle_hypercall_kafl_set_agent_config(struct kvm_run *run, CPUState *cpu, 
 			config.dump_payloads = 1;
 			write_virtual_memory(vaddr, (uint8_t*)&config, sizeof(agent_config_t), cpu);
 		}
-
 	}
+
 	else{
 		fprintf(stderr, "[QEMU-Nyx] Error: %s - failed (vaddr: 0x%lx)!\n", __func__, vaddr);
 		exit(1);
 	}
+
 	GET_GLOBAL_STATE()->set_agent_config_done = true;
 }

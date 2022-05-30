@@ -2393,7 +2393,7 @@ static int handle_vmware_hypercall(struct kvm_run *run, CPUState *cpu){
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = &x86_cpu->env;
 
-    return handle_kafl_hypercall(run, cpu, env->regs[R_EBX]+100, env->regs[R_ECX]);
+    return handle_kafl_hypercall(cpu, env->regs[R_EBX]+100, env->regs[R_ECX]);
 }
 #endif
 
@@ -2570,11 +2570,11 @@ int kvm_cpu_exec(CPUState *cpu)
 #ifndef CONFIG_KVM_EXIT_SHUTODWN_IS_PANIC
                 /* Fuzzing is enabled at this point -> don't exit */
 				fprintf(stderr, "Got KVM_EXIT_SHUTDOWN while in fuzzing mode => reload\n",);
-                handle_hypercall_kafl_release(run, cpu, (uint64_t)run->hypercall.args[0]);
+                handle_hypercall_kafl_release(cpu, (uint64_t)run->hypercall.args[0]);
 				ret = 0;
 #else
 				debug_fprintf(stderr "Got KVM_EXIT_SHUTDOWN while in fuzzing mode => panic\n",);
-				handle_hypercall_kafl_panic(run, cpu, (uint64_t)run->hypercall.args[0]);
+				handle_hypercall_kafl_panic(cpu, (uint64_t)run->hypercall.args[0]);
 				ret = 0;
 #endif
             } else{
@@ -2605,12 +2605,12 @@ int kvm_cpu_exec(CPUState *cpu)
             break;
 
         case KVM_EXIT_KAFL_ACQUIRE ... (KVM_EXIT_KAFL_ACQUIRE+100):
-            ret = handle_kafl_hypercall(run, cpu, (uint64_t)run->exit_reason, (uint64_t)run->hypercall.args[0]);
+            ret = handle_kafl_hypercall(cpu, (uint64_t)run->exit_reason, (uint64_t)run->hypercall.args[0]);
             break;
         
         case KVM_EXIT_DEBUG:
             kvm_arch_get_registers(cpu);                                                                                                                                     
-            if(!handle_hypercall_kafl_hook(run, cpu, (uint64_t)run->hypercall.args[0])){      
+            if(!handle_hypercall_kafl_hook(cpu, (uint64_t)run->hypercall.args[0])){      
                 ret = kvm_arch_handle_exit(cpu, run);                                                                                                                        
             }                                                                                                                                                      
             else {     
@@ -2629,7 +2629,7 @@ int kvm_cpu_exec(CPUState *cpu)
                 fprintf(stderr, "ATTEMPT TO SHUTDOWN MACHINE (KVM_SYSTEM_EVENT_SHUTDOWN)!\n");
                 if(GET_GLOBAL_STATE()->in_fuzzing_mode){
                     /* Fuzzing is enabled at this point -> don't exit */
-                    handle_hypercall_kafl_release(run, cpu, (uint64_t)run->hypercall.args[0]);
+                    handle_hypercall_kafl_release(cpu, (uint64_t)run->hypercall.args[0]);
                     ret = 0;
                 }
                 else{
@@ -2646,7 +2646,7 @@ int kvm_cpu_exec(CPUState *cpu)
                 fprintf(stderr, "ATTEMPT TO SHUTDOWN MACHINE (KVM_SYSTEM_EVENT_RESET)!\n");
                 if(GET_GLOBAL_STATE()->in_fuzzing_mode){
                     /* Fuzzing is enabled at this point -> don't exit */
-                    handle_hypercall_kafl_release(run, cpu, (uint64_t)run->hypercall.args[0]);
+                    handle_hypercall_kafl_release(cpu, (uint64_t)run->hypercall.args[0]);
                     ret = 0;
                 }
                 else{
@@ -2666,7 +2666,7 @@ int kvm_cpu_exec(CPUState *cpu)
                 fprintf(stderr, "ATTEMPT TO SHUTDOWN MACHINE (KVM_SYSTEM_EVENT_CRASH)!\n");
                 if(GET_GLOBAL_STATE()->in_fuzzing_mode){
                     /* Fuzzing is enabled at this point -> don't exit */
-                    handle_hypercall_kafl_release(run, cpu, (uint64_t)run->hypercall.args[0]);
+                    handle_hypercall_kafl_release(cpu, (uint64_t)run->hypercall.args[0]);
                     ret = 0;
                 }
                 else{
@@ -2697,7 +2697,7 @@ int kvm_cpu_exec(CPUState *cpu)
             debug_fprintf("kvm_arch_handle_exit(%d) => panic\n", run->exit_reason);
 			ret = kvm_arch_handle_exit(cpu, run);
 			if (ret != 0)
-				handle_hypercall_kafl_panic(run, cpu, (uint64_t)run->hypercall.args[0]);
+				handle_hypercall_kafl_panic(cpu, (uint64_t)run->hypercall.args[0]);
 #endif
 #endif
             ret = kvm_arch_handle_exit(cpu, run);

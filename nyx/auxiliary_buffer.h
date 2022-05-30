@@ -26,6 +26,8 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "exec/hwaddr.h"
 
+typedef uint64_t vaddr;
+
 #define AUX_BUFFER_SIZE 4096
 
 #define AUX_MAGIC 0x54502d554d4551
@@ -104,6 +106,12 @@ typedef struct auxilary_buffer_config_s{
   /* snapshot extension */
   uint8_t discard_tmp_snapshot;
 
+  /* SYX configuration */
+  uint8_t syx_symbolic_run;
+  uint64_t syx_phys_addr;
+  uint64_t syx_virt_addr;
+  uint32_t syx_len;
+
   /* more to come */
 } __attribute__((packed)) auxilary_buffer_config_t;
 
@@ -129,8 +137,10 @@ typedef struct auxilary_buffer_result_s{
   uint32_t bb_coverage; 
   uint32_t runtime_usec;
   uint32_t runtime_sec;
+  uint32_t padding_4;
 
-  uint64_t syx_addr;
+  uint64_t syx_phys_addr;
+  uint64_t syx_virt_addr;
   uint32_t syx_len;
 
   /* more to come */
@@ -172,7 +182,7 @@ void check_auxiliary_config_buffer(auxilary_buffer_t* auxilary_buffer, auxilary_
 void set_crash_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_asan_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
-void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_addr, unsigned len);
+void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, vaddr start_virt_addr, unsigned len);
 void set_reload_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_pt_overflow_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_exec_done_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, uint32_t sec, uint32_t usec, uint32_t num_dirty_pages);

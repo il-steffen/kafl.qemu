@@ -14,15 +14,21 @@
 #include "nyx/memory_access.h"
 #include "nyx/debug.h"
 #include "nyx/helpers.h"
+#include "nyx/syx/syx.h"
 
-bool tcg_mode = true;
+bool tcg_mode = false;
 
 void enable_tcg_mode(void){
+	printf("[QEMU] enabling TCG mode...\n");
 	tcg_mode = true;
 }
 
 void disable_tcg_mode(void){
 	tcg_mode = false;
+}
+
+bool is_enabled_tcg_mode(void) {
+	return tcg_mode;
 }
 
 void nyx_get_registers(CPUState *cpu){

@@ -147,6 +147,12 @@ typedef struct qemu_nyx_state_s{
     uint64_t cap_ijon_tracing_buffer_vaddr;
     uint64_t cap_coverage_bitmap_size;
 
+    /* SYX */
+    uint8_t syx_sym_tcg_enabled;
+    uint64_t syx_phys_addr;
+    uint64_t syx_virt_addr;
+    uint32_t syx_len;
+
     auxilary_buffer_t* auxilary_buffer;
     auxilary_buffer_config_t shadow_config;
     sharedir_t* sharedir;

@@ -114,23 +114,19 @@ bool pt_hypercalls_enabled(void);
 void hypercall_unlock(void);
 void hypercall_reload(void);
 
-void handle_hypercall_kafl_acquire(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
-void handle_hypercall_kafl_release(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
-void handle_hypercall_kafl_panic(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
+void handle_hypercall_kafl_acquire(CPUState *cpu, uint64_t hypercall_arg);
+void handle_hypercall_kafl_release(CPUState *cpu, uint64_t hypercall_arg);
+void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg);
 
-void handle_hypercall_kafl_page_dump_bp(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg, uint64_t page);
-
-
-/* syx hypercall handlers */
-void handle_hypercall_kafl_nyx_tcg_run(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
+void handle_hypercall_kafl_page_dump_bp(CPUState *cpu, uint64_t hypercall_arg, uint64_t page);
 
 void hprintf(char* msg);
 
-bool handle_hypercall_kafl_next_payload(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
+bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg);
 void hypercall_reset_hprintf_counter(void);
 
-bool handle_hypercall_kafl_hook(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
-void handle_hypercall_kafl_mtf(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg);
+bool handle_hypercall_kafl_hook(CPUState *cpu, uint64_t hypercall_arg);
+void handle_hypercall_kafl_mtf(CPUState *cpu, uint64_t hypercall_arg);
 void pt_enable_rqo(CPUState *cpu);
 void pt_disable_rqo(CPUState *cpu);
 void pt_enable_rqi(CPUState *cpu);
@@ -141,7 +137,7 @@ void pt_set_enable_patches_pending(CPUState *cpu);
 void pt_set_disable_patches_pending(CPUState *cpu);
 
 void create_fast_snapshot(CPUState *cpu, bool nested);
-int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall, uint64_t arg);
+int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg);
 
 void skip_init(void);
 

@@ -40,4 +40,5 @@ obj-$(CONFIG_QEMU_SYX) += \
 syx/syx.o \
 syx/symbolic-memory.o \
 syx/tcg/tcg-runtime-sym.o \
+syx/tcg/helper.o \
 syx/kvm/event.o

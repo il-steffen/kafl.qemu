@@ -40,6 +40,8 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "migration/snapshot.h"
 #include "qapi/error.h"
 
+#include "target/i386/cpu.h"
+
 #include "nyx/pt.h"
 #include "nyx/hypercall/hypercall.h"
 #include "nyx/memory_access.h"
@@ -61,6 +63,8 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef QEMU_SYX
 #include "nyx/syx/syx.h"
+typedef void* SymExpr;
+#include "RuntimeCommon.h"
 #endif
 
 //#define DEBUG_HPRINTF
@@ -100,7 +104,7 @@ void hypercall_commit_filter(void){
 bool setup_snapshot_once = false;
 
 
-bool handle_hypercall_kafl_next_payload(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 	//fprintf(stderr, "%s\n", __func__);
 /*
 	nyx_get_registers(cpu);
@@ -116,7 +120,6 @@ bool handle_hypercall_kafl_next_payload(struct kvm_run *run, CPUState *cpu, uint
 			synchronization_lock();
 
 		} else {
-
 			if (GET_GLOBAL_STATE()->set_agent_config_done == false){
 				nyx_abort((char*)"KVM_EXIT_KAFL_SET_AGENT_CONFIG was not called...");
 				return false;
@@ -124,34 +127,38 @@ bool handle_hypercall_kafl_next_payload(struct kvm_run *run, CPUState *cpu, uint
 
 			if(!setup_snapshot_once){ 
 				//pt_reset_bitmap();
+				if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+					coverage_bitmap_reset();
+					request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
 
-
-				coverage_bitmap_reset();
-				request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
-				setup_snapshot_once = true;
-
-				for(int i = 0; i < INTEL_PT_MAX_RANGES; i++){
-					//printf("=> %d\n", i);
-					//if(filter_enabled[i]){
-					if(GET_GLOBAL_STATE()->pt_ip_filter_configured[i]){
-						pt_enable_ip_filtering(cpu, i, true, false);
+					for(int i = 0; i < INTEL_PT_MAX_RANGES; i++){
+						//printf("=> %d\n", i);
+						//if(filter_enabled[i]){
+						if(GET_GLOBAL_STATE()->pt_ip_filter_configured[i]){
+							pt_enable_ip_filtering(cpu, i, true, false);
+						}
 					}
+					pt_init_decoder(cpu);
+
+					request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_LOAD_SNAPSHOT_ROOT);
+
+					//printf("DONE!\n");
+					/*
+					qemu_mutex_lock_iothread();
+					QEMU_PT_PRINTF(CORE_PREFIX, "...GOOOOOO!!!!");
+					fast_reload_restore(get_fast_reload_snapshot());
+					QEMU_PT_PRINTF(CORE_PREFIX, "...DONE!!!!");
+					qemu_mutex_unlock_iothread();
+					*/
 				}
-				pt_init_decoder(cpu);
 
-				request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_LOAD_SNAPSHOT_ROOT);
-
-				//printf("DONE!\n");
-				/*
-				qemu_mutex_lock_iothread();
-				QEMU_PT_PRINTF(CORE_PREFIX, "...GOOOOOO!!!!");
-				fast_reload_restore(get_fast_reload_snapshot());
-				QEMU_PT_PRINTF(CORE_PREFIX, "...DONE!!!!");
-				qemu_mutex_unlock_iothread();
-				*/
+				setup_snapshot_once = true;
 				GET_GLOBAL_STATE()->in_fuzzing_mode = true;
 				set_state_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, 3);
 
+				if (GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+					handle_hypercall_kafl_next_payload(cpu, hypercall_arg);
+				}
 				//sigprof_enabled = true;
 				//reset_timeout_detector(&GET_GLOBAL_STATE()->timeout_detector);
 			}
@@ -184,7 +191,7 @@ static void acquire_print_once(CPUState *cpu){
 	}
 }
 
-void handle_hypercall_kafl_acquire(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+void handle_hypercall_kafl_acquire(CPUState *cpu, uint64_t hypercall_arg){
 	//return;
 	if(hypercall_enabled){
 		if (!init_state){
@@ -200,7 +207,7 @@ void handle_hypercall_kafl_acquire(struct kvm_run *run, CPUState *cpu, uint64_t 
 	}
 }
 
-static void handle_hypercall_get_payload(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_get_payload(CPUState *cpu, uint64_t hypercall_arg){
 	debug_printf("------------ %s\n", __func__);
 
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_GET_PAYLOAD")){
@@ -237,7 +244,7 @@ static void set_return_value(CPUState *cpu, uint64_t return_value){
 	kvm_arch_put_registers(cpu, KVM_PUT_RUNTIME_STATE);	
 }
 
-static void handle_hypercall_kafl_req_stream_data(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_req_stream_data(CPUState *cpu, uint64_t hypercall_arg){
 	static uint8_t req_stream_buffer[0x1000];
 
 	if(is_called_in_fuzzing_mode("HYPERCALL_KAFL_REQ_STREAM_DATA")){
@@ -266,7 +273,7 @@ typedef struct req_data_bulk_s{
 	uint64_t addresses[479];
 } req_data_bulk_t;
 
-static void handle_hypercall_kafl_req_stream_data_bulk(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_req_stream_data_bulk(CPUState *cpu, uint64_t hypercall_arg){
 	static uint8_t req_stream_buffer[0x1000];
 	//static uint64_t addresses[512];
 	req_data_bulk_t req_data_bulk_data;
@@ -308,7 +315,7 @@ static void handle_hypercall_kafl_req_stream_data_bulk(struct kvm_run *run, CPUS
 }
 
 
-static void handle_hypercall_kafl_range_submit(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_range_submit(CPUState *cpu, uint64_t hypercall_arg){
 	uint64_t buffer[3];
 
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_RANGE_SUBMIT")){
@@ -351,7 +358,7 @@ static void release_print_once(CPUState *cpu){
 	}
 }
 
-void handle_hypercall_kafl_release(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+void handle_hypercall_kafl_release(CPUState *cpu, uint64_t hypercall_arg){
 	//fprintf(stderr, "%s\n", __func__);
 	if(hypercall_enabled){
 		if (init_state){
@@ -364,7 +371,12 @@ void handle_hypercall_kafl_release(struct kvm_run *run, CPUState *cpu, uint64_t 
 				GET_GLOBAL_STATE()->starved = 0;
 			}
 
-			synchronization_disable_pt(cpu);
+			if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+				synchronization_disable_pt(cpu);
+			} else {
+					_sym_flush_results();
+			}
+
 			release_print_once(cpu);
 		}
 	}
@@ -375,7 +387,7 @@ struct kvm_set_guest_debug_data {
     int err;
 };
 
-void handle_hypercall_kafl_mtf(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+void handle_hypercall_kafl_mtf(CPUState *cpu, uint64_t hypercall_arg){
 	//assert(false);
 	nyx_get_registers_fast(cpu);
 
@@ -391,7 +403,7 @@ void handle_hypercall_kafl_mtf(struct kvm_run *run, CPUState *cpu, uint64_t hype
 	kvm_vcpu_ioctl(cpu, KVM_VMX_PT_ENABLE_PAGE_DUMP_CR3);
 }
 
-void handle_hypercall_kafl_page_dump_bp(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg, uint64_t page){
+void handle_hypercall_kafl_page_dump_bp(CPUState *cpu, uint64_t hypercall_arg, uint64_t page){
 	//fprintf(stderr, "--> %s\n", __func__);
 	nyx_get_registers_fast(cpu);
 
@@ -432,7 +444,7 @@ static inline void set_page_dump_bp(CPUState *cpu, uint64_t cr3, uint64_t addr){
 	kvm_vcpu_ioctl(cpu, KVM_VMX_PT_ENABLE_PAGE_DUMP_CR3);
 }
 
-static void handle_hypercall_kafl_cr3(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_cr3(CPUState *cpu, uint64_t hypercall_arg){
 	if(hypercall_enabled){
 		//QEMU_PT_PRINTF(CORE_PREFIX, "CR3 address:\t\t%lx", hypercall_arg);
 		pt_set_cr3(cpu, hypercall_arg & 0xFFFFFFFFFFFFF000ULL, false);
@@ -442,7 +454,7 @@ static void handle_hypercall_kafl_cr3(struct kvm_run *run, CPUState *cpu, uint64
 	}
 }
 
-static void handle_hypercall_kafl_submit_panic(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_submit_panic(CPUState *cpu, uint64_t hypercall_arg){
 
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_SUBMIT_PANIC")){
 		return;
@@ -468,7 +480,7 @@ static void handle_hypercall_kafl_submit_panic(struct kvm_run *run, CPUState *cp
 	}
 }
 
-static void handle_hypercall_kafl_submit_kasan(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_submit_kasan(CPUState *cpu, uint64_t hypercall_arg){
 	if(hypercall_enabled){
 		QEMU_PT_PRINTF(CORE_PREFIX, "kASAN address:\t%lx", hypercall_arg);
 
@@ -491,7 +503,7 @@ static void handle_hypercall_kafl_submit_kasan(struct kvm_run *run, CPUState *cp
 
 //#define PANIC_DEBUG
 
-void handle_hypercall_kafl_panic(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 	static char reason[1024];
 	if(hypercall_enabled){
 #ifdef PANIC_DEBUG
@@ -537,7 +549,7 @@ void handle_hypercall_kafl_panic(struct kvm_run *run, CPUState *cpu, uint64_t hy
 	}
 }
 
-static void handle_hypercall_kafl_create_tmp_snapshot(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_create_tmp_snapshot(CPUState *cpu, uint64_t hypercall_arg){
 	//X86CPU *x86_cpu = X86_CPU(cpu);
 	//CPUX86State *env = &x86_cpu->env;
 	if(!fast_reload_tmp_created(get_fast_reload_snapshot())){
@@ -569,7 +581,7 @@ static void handle_hypercall_kafl_create_tmp_snapshot(struct kvm_run *run, CPUSt
 		//handle_hypercall_kafl_acquire(run, cpu);
 		//fprintf(stderr, "%s: CREATE DONE at %lx\n", __func__, get_rip(cpu));
 
-		handle_hypercall_kafl_release(run, cpu, hypercall_arg);
+		handle_hypercall_kafl_release(cpu, hypercall_arg);
 	}
 	else{
 		//fprintf(stderr, "%s: LOAD Continue at %lx\n", __func__, get_rip(cpu));
@@ -587,7 +599,7 @@ static void handle_hypercall_kafl_create_tmp_snapshot(struct kvm_run *run, CPUSt
 	}
 }
 
-static void handle_hypercall_kafl_panic_extended(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_panic_extended(CPUState *cpu, uint64_t hypercall_arg){
 		if(fast_reload_snapshot_exists(get_fast_reload_snapshot()) && GET_GLOBAL_STATE()->in_fuzzing_mode){
 			read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
 			set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strlen(hprintf_buffer));
@@ -600,7 +612,7 @@ static void handle_hypercall_kafl_panic_extended(struct kvm_run *run, CPUState *
 		}
 }
 
-static void handle_hypercall_kafl_kasan(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_kasan(CPUState *cpu, uint64_t hypercall_arg){
 	if(hypercall_enabled){
 #ifdef PANIC_DEBUG
 		if(hypercall_arg){
@@ -621,7 +633,7 @@ static void handle_hypercall_kafl_kasan(struct kvm_run *run, CPUState *cpu, uint
 	}
 }
 
-static void handle_hypercall_kafl_lock(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_lock(CPUState *cpu, uint64_t hypercall_arg){
 
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_LOCK")){
 		return;
@@ -638,7 +650,7 @@ static void handle_hypercall_kafl_lock(struct kvm_run *run, CPUState *cpu, uint6
 	request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_PRE);
 }
 
-static void handle_hypercall_kafl_printf(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_printf(CPUState *cpu, uint64_t hypercall_arg){
 	read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
 #ifdef DEBUG_HPRINTF
 	fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
@@ -647,7 +659,7 @@ static void handle_hypercall_kafl_printf(struct kvm_run *run, CPUState *cpu, uin
 	synchronization_lock();
 }
 
-static void handle_hypercall_kafl_user_range_advise(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_user_range_advise(CPUState *cpu, uint64_t hypercall_arg){
 	
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_USER_RANGE_ADVISE")){
 		return;
@@ -665,7 +677,7 @@ static void handle_hypercall_kafl_user_range_advise(struct kvm_run *run, CPUStat
 	free(buf);
 }
 
-static void handle_hypercall_kafl_user_submit_mode(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_user_submit_mode(CPUState *cpu, uint64_t hypercall_arg){
 	//printf("%s\n", __func__);
 
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_USER_SUBMIT_MODE")){
@@ -694,7 +706,7 @@ static void handle_hypercall_kafl_user_submit_mode(struct kvm_run *run, CPUState
 	}
 }
 
-bool handle_hypercall_kafl_hook(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+bool handle_hypercall_kafl_hook(CPUState *cpu, uint64_t hypercall_arg){
 	X86CPU *cpux86 = X86_CPU(cpu);
     CPUX86State *env = &cpux86->env;
 
@@ -710,7 +722,7 @@ bool handle_hypercall_kafl_hook(struct kvm_run *run, CPUState *cpu, uint64_t hyp
 	return false;
 }
 
-static void handle_hypercall_kafl_user_abort(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_user_abort(CPUState *cpu, uint64_t hypercall_arg){
 	read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
 	set_abort_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strlen(hprintf_buffer));
 	synchronization_lock();
@@ -742,7 +754,7 @@ void pt_set_disable_patches_pending(CPUState *cpu){
 	GET_GLOBAL_STATE()->patches_disable_pending = true;
 }
 
-static void handle_hypercall_kafl_dump_file(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg)
+static void handle_hypercall_kafl_dump_file(CPUState *cpu, uint64_t hypercall_arg)
 {
 	kafl_dump_file_t file_obj;
 	char filename[256] = {0};
@@ -835,7 +847,7 @@ err_out1:
 	free(host_path);
 }
 
-static void handle_hypercall_kafl_persist_page_past_snapshot(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_persist_page_past_snapshot(CPUState *cpu, uint64_t hypercall_arg){
 
 	if(is_called_in_fuzzing_mode("KVM_EXIT_KAFL_PERSIST_PAGE_PAST_SNAPSHOT")){
 		return;
@@ -849,13 +861,12 @@ static void handle_hypercall_kafl_persist_page_past_snapshot(struct kvm_run *run
 }
 
 #ifdef QEMU_SYX
-static void handle_hypercall_kafl_syx_init(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_syx_init(CPUState *cpu, uint64_t hypercall_arg){
 	qemu_mutex_lock_iothread();
-	syx_init();
 	qemu_mutex_unlock_iothread();
 }
 
-static void handle_hypercall_kafl_syx_add_memory_access(struct kvm_run *run, CPUState *cpu, uint64_t hypercall_arg){
+static void handle_hypercall_kafl_syx_add_memory_access(CPUState *cpu, uint64_t hypercall_arg){
 	qemu_mutex_lock_iothread();
 	nyx_get_registers_fast(cpu);
 
@@ -867,31 +878,45 @@ static void handle_hypercall_kafl_syx_add_memory_access(struct kvm_run *run, CPU
 
 	hwaddr page_phys_addr_to_hook = get_paging_phys_addr(cpu, env->cr[3], vaddr_to_hook);
 
-	syx_event_add_memory_access(page_phys_addr_to_hook, mem_len);
+    if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+		syx_event_add_memory_access(page_phys_addr_to_hook, vaddr_to_hook, mem_len);
+    } else {
+        // Not using physical address for consistency reason...
+        // The check should be added once cross-snapshoting works.
+        if (vaddr_to_hook == GET_GLOBAL_STATE()->syx_virt_addr
+            && mem_len == GET_GLOBAL_STATE()->syx_len) {
+                syx_init_symbolic_backend(page_phys_addr_to_hook, vaddr_to_hook, mem_len);
+            } else {
+                SYX_PRINTF("Not initializing symbolic execution\n");
+                SYX_PRINTF("\t- Phys symbolized: 0x%lx | Phys hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_phys_addr, page_phys_addr_to_hook);
+                SYX_PRINTF("\t- Virt symbolized: 0x%lx | Virt hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_virt_addr, vaddr_to_hook);
+                SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
+            }
+    }
 	qemu_mutex_unlock_iothread();
 }
 
-static void handle_hypercall_kafl_syx_disable_memory_access(run, cpu, arg) {
+static void handle_hypercall_kafl_syx_disable_memory_access(CPUState* cpu, uint64_t arg) {
 	qemu_mutex_lock_iothread();
 	syx_event_memory_access_disable();
 	qemu_mutex_unlock_iothread();
 }
 #endif
 
-int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall, uint64_t arg){
+int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg){
 	int ret = -1;
 	//fprintf(stderr, "%s -> %ld\n", __func__, hypercall);
 	switch(hypercall){
 		case KVM_EXIT_KAFL_ACQUIRE:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_ACQUIRE\n");
-			handle_hypercall_kafl_acquire(run, cpu, arg);
+			handle_hypercall_kafl_acquire(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_GET_PAYLOAD:
 			// = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_GET_PAYLOAD\n");
-			handle_hypercall_get_payload(run, cpu, arg);
+			handle_hypercall_get_payload(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_GET_PROGRAM:
@@ -905,43 +930,43 @@ int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall
 		case KVM_EXIT_KAFL_RELEASE:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_RELEASE\n");
-			handle_hypercall_kafl_release(run, cpu, arg);
+			handle_hypercall_kafl_release(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_SUBMIT_CR3:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_SUBMIT_CR3\n");
-			handle_hypercall_kafl_cr3(run, cpu, arg);
+			handle_hypercall_kafl_cr3(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_SUBMIT_PANIC:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_SUBMIT_PANIC\n");
-			handle_hypercall_kafl_submit_panic(run, cpu, arg);
+			handle_hypercall_kafl_submit_panic(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_SUBMIT_KASAN:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_SUBMIT_KASAN\n");
-			handle_hypercall_kafl_submit_kasan(run, cpu, arg);
+			handle_hypercall_kafl_submit_kasan(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_PANIC:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_PANIC\n");
-			handle_hypercall_kafl_panic(run, cpu, arg);
+			handle_hypercall_kafl_panic(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_KASAN:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_KASAN\n");
-			handle_hypercall_kafl_kasan(run, cpu, arg);
+			handle_hypercall_kafl_kasan(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_LOCK:
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_LOCK\n");
-			handle_hypercall_kafl_lock(run, cpu, arg);
+			handle_hypercall_kafl_lock(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_INFO:
@@ -951,13 +976,13 @@ int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall
 		case KVM_EXIT_KAFL_NEXT_PAYLOAD:
 			//timeout_reload_pending = false;  
 			//fprintf(stderr, "KVM_EXIT_KAFL_NEXT_PAYLOAD\n");                                                                                                                                   
-			handle_hypercall_kafl_next_payload(run, cpu, arg);                                                                                                                    
+			handle_hypercall_kafl_next_payload(cpu, arg);                                                                                                                    
 			ret = 0;                                                                                                                                                         
 			break;						
 		case KVM_EXIT_KAFL_PRINTF:			
 			//timeout_reload_pending = false;
 			//fprintf(stderr, "KVM_EXIT_KAFL_PRINTF\n");                                                                                                                                  
-			handle_hypercall_kafl_printf(run, cpu, arg);                                                                                                                    
+			handle_hypercall_kafl_printf(cpu, arg);                                                                                                                    
 			ret = 0;                                                                                                                                                         
 			break;       
 		case KVM_EXIT_KAFL_PRINTK_ADDR:   
@@ -972,19 +997,19 @@ int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall
 		/* user space only exit reasons */
 		case KVM_EXIT_KAFL_USER_RANGE_ADVISE:
 			//timeout_reload_pending = false;
-			handle_hypercall_kafl_user_range_advise(run, cpu, arg);
+			handle_hypercall_kafl_user_range_advise(cpu, arg);
 			ret = 0;  
 			break;
 		case KVM_EXIT_KAFL_USER_SUBMIT_MODE:
 			//timeout_reload_pending = false;
-			handle_hypercall_kafl_user_submit_mode(run, cpu, arg);
+			handle_hypercall_kafl_user_submit_mode(cpu, arg);
 			ret = 0;  
 			break;
 		case KVM_EXIT_KAFL_USER_FAST_ACQUIRE:
 			//timeout_reload_pending = false;
-			if(handle_hypercall_kafl_next_payload(run, cpu, arg)){
-					handle_hypercall_kafl_cr3(run, cpu, arg);   
-					handle_hypercall_kafl_acquire(run, cpu, arg);
+			if(handle_hypercall_kafl_next_payload(cpu, arg)){
+					handle_hypercall_kafl_cr3(cpu, arg);   
+					handle_hypercall_kafl_acquire(cpu, arg);
 			}
 			ret = 0;  
 			break;
@@ -996,103 +1021,103 @@ int handle_kafl_hypercall(struct kvm_run *run, CPUState *cpu, uint64_t hypercall
 			break;
 		case KVM_EXIT_KAFL_USER_ABORT:
 			//timeout_reload_pending = false;
-			handle_hypercall_kafl_user_abort(run, cpu, arg);
+			handle_hypercall_kafl_user_abort(cpu, arg);
 			ret = 0;  
 			break;
 		case KVM_EXIT_KAFL_NESTED_CONFIG:
 			//timeout_reload_pending = false;
-			handle_hypercall_kafl_nested_config(run, cpu, arg);
+			handle_hypercall_kafl_nested_config(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_NESTED_PREPARE:
 			//timeout_reload_pending = false;
-			handle_hypercall_kafl_nested_prepare(run, cpu, arg);
+			handle_hypercall_kafl_nested_prepare(cpu, arg);
 			ret = 0;
 			break;
 
 		case KVM_EXIT_KAFL_NESTED_ACQUIRE:
 			//timeout_reload_pending = false;
-			handle_hypercall_kafl_nested_acquire(run, cpu, arg);
+			handle_hypercall_kafl_nested_acquire(cpu, arg);
 			ret = 0;
 			break;
 
 		case KVM_EXIT_KAFL_NESTED_RELEASE:
 			//timeout_reload_pending = false;
 			//KVM_EXIT_KAFL_NESTED_RELEASE_GOTO:
-			handle_hypercall_kafl_nested_release(run, cpu, arg);
+			handle_hypercall_kafl_nested_release(cpu, arg);
 			//unlock_reload_pending(cpu);
 			ret = 0;
 			break;
 
 		case KVM_EXIT_KAFL_NESTED_HPRINTF:
-			handle_hypercall_kafl_nested_hprintf(run, cpu, arg);
+			handle_hypercall_kafl_nested_hprintf(cpu, arg);
 			ret = 0;
 			break;
 
 		case KVM_EXIT_KAFL_PAGE_DUMP_BP:
-			handle_hypercall_kafl_page_dump_bp(run, cpu, arg, run->debug.arch.pc);
-			ret = 0;
+			// handle_hypercall_kafl_page_dump_bp(cpu, arg, run->debug.arch.pc);
+			// ret = 0;
 			break;
 		case KVM_EXIT_KAFL_MTF:
-			handle_hypercall_kafl_mtf(run, cpu, arg);
+			handle_hypercall_kafl_mtf(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_RANGE_SUBMIT:
-			handle_hypercall_kafl_range_submit(run, cpu, arg);
+			handle_hypercall_kafl_range_submit(cpu, arg);
 			ret = 0;
 			break;
 		case HYPERCALL_KAFL_REQ_STREAM_DATA:
-			handle_hypercall_kafl_req_stream_data(run, cpu, arg);
+			handle_hypercall_kafl_req_stream_data(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_NESTED_EARLY_RELEASE:
-			handle_hypercall_kafl_nested_early_release(run, cpu, arg);
+			handle_hypercall_kafl_nested_early_release(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_PANIC_EXTENDED:
-			handle_hypercall_kafl_panic_extended(run, cpu, arg);
+			handle_hypercall_kafl_panic_extended(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_CREATE_TMP_SNAPSHOT:
-			handle_hypercall_kafl_create_tmp_snapshot(run, cpu, arg);
+			handle_hypercall_kafl_create_tmp_snapshot(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_DEBUG_TMP_SNAPSHOT:
-			handle_hypercall_kafl_debug_tmp_snapshot(run, cpu, arg);
+			handle_hypercall_kafl_debug_tmp_snapshot(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_GET_HOST_CONFIG:
-			handle_hypercall_kafl_get_host_config(run, cpu, arg);
+			handle_hypercall_kafl_get_host_config(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_SET_AGENT_CONFIG:
-			handle_hypercall_kafl_set_agent_config(run, cpu, arg);
+			handle_hypercall_kafl_set_agent_config(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_DUMP_FILE:
-			handle_hypercall_kafl_dump_file(run, cpu, arg);
+			handle_hypercall_kafl_dump_file(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_REQ_STREAM_DATA_BULK:
-			handle_hypercall_kafl_req_stream_data_bulk(run, cpu, arg);
+			handle_hypercall_kafl_req_stream_data_bulk(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_PERSIST_PAGE_PAST_SNAPSHOT:
-			handle_hypercall_kafl_persist_page_past_snapshot(run, cpu, arg);
+			handle_hypercall_kafl_persist_page_past_snapshot(cpu, arg);
 			ret = 0;
 			break;
 #ifdef QEMU_SYX
 		/* SYX hypercalls */
 		case KVM_EXIT_KAFL_SYX_INIT:
-			handle_hypercall_kafl_syx_init(run, cpu, arg);
+			handle_hypercall_kafl_syx_init(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_SYX_ADD_MEMORY_ACCESS:
-			handle_hypercall_kafl_syx_add_memory_access(run, cpu, arg);
+			handle_hypercall_kafl_syx_add_memory_access(cpu, arg);
 			ret = 0;
 			break;
 		case KVM_EXIT_KAFL_SYX_DISABLE_MEMORY_ACCESS:
-			handle_hypercall_kafl_syx_disable_memory_access(run, cpu, arg);
+			handle_hypercall_kafl_syx_disable_memory_access(cpu, arg);
 			ret = 0;
 			break;
 #endif

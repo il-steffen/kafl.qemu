@@ -57,6 +57,10 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "redqueen.h"
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx.h"
+#endif
+
 #define CONVERT_UINT64(x) (uint64_t)(strtoull(x, NULL, 16))
 
 #define TYPE_NYX_MEM "nyx"
@@ -93,7 +97,7 @@ typedef struct nyx_interface_state {
 	bool edge_cb_trace;
 
 	bool redqueen;
-	
+	bool syx_sym_tcg;
 } nyx_interface_state;
 
 static void nyx_interface_event(void *opaque, int event){
@@ -207,6 +211,7 @@ static void nyx_guest_setup_ijon_buffer(nyx_interface_state *s, char* filename){
 static bool verify_workdir_state(nyx_interface_state *s, Error **errp){
 
 	char* workdir = s->workdir;
+	bool syx_sym_tcg_enabled = s->syx_sym_tcg;
 	uint32_t id = s->worker_id;
 	char* tmp;
 
@@ -242,25 +247,27 @@ static bool verify_workdir_state(nyx_interface_state *s, Error **errp){
 	}
 	free(tmp);
 
-	assert(asprintf(&tmp, "%s/bitmap_%d", workdir, id) != -1);
-	if (!file_exits(tmp)){
-		fprintf(stderr,  "%s does not exist...\n", tmp);
+	
+	if (!syx_sym_tcg_enabled) {
+		assert(asprintf(&tmp, "%s/bitmap_%d", workdir, id) != -1);
+		if (!file_exits(tmp)){
+			fprintf(stderr,  "%s does not exist...\n", tmp);
+			free(tmp);
+			return false;
+		} else {
+			nyx_guest_setup_bitmap(s, tmp, s->bitmap_size);
+		}
 		free(tmp);
-		return false;
-	} else {
-		nyx_guest_setup_bitmap(s, tmp, s->bitmap_size);
-	}
-	free(tmp);
 
-	assert(asprintf(&tmp, "%s/ijon_%d", workdir, id) != -1);
-	if (!file_exits(tmp)){
-		fprintf(stderr,  "%s does not exist...\n", tmp);
+		assert(asprintf(&tmp, "%s/ijon_%d", workdir, id) != -1);
+		if (!file_exits(tmp)){
+			fprintf(stderr,  "%s does not exist...\n", tmp);
+			free(tmp);
+			return false;
+		} else {
+			nyx_guest_setup_ijon_buffer(s, tmp);
+		}
 		free(tmp);
-		return false;
-	} else {
-		nyx_guest_setup_ijon_buffer(s, tmp);
-	}
-	free(tmp);
 
 	assert(asprintf(&tmp, "%s/page_cache.lock", workdir) != -1);
 	if (!file_exits(tmp)){
@@ -289,28 +296,40 @@ static bool verify_workdir_state(nyx_interface_state *s, Error **errp){
 	assert(asprintf(&tmp, "%s/page_cache", workdir) != -1);
 	init_page_cache(tmp);
 
-	assert(asprintf(&tmp, "%s/redqueen_workdir_%d/", workdir, id) != -1);
-	if (!folder_exits(tmp)){
-		fprintf(stderr,  "%s does not exist...\n", tmp);
+		assert(asprintf(&tmp, "%s/redqueen_workdir_%d/", workdir, id) != -1);
+		if (!folder_exits(tmp)){
+			fprintf(stderr,  "%s does not exist...\n", tmp);
+			free(tmp);
+			return false;
+		}
+		else {
+			setup_redqueen_workdir(tmp);
+		}
 		free(tmp);
-		return false;
+
+		init_redqueen_state();
+
+		if(s->dump_pt_trace){
+			assert(asprintf(&tmp, "%s/pt_trace_dump_%d", workdir, id) != -1);
+			pt_trace_dump_init(tmp);
+			free(tmp);
+		}
+
+		if(s->edge_cb_trace){
+			redqueen_trace_init();
+		}
+	} else {
+		assert(asprintf(&tmp, "%s/syx_workdir_%d/", workdir, id) != -1);
+		if (!folder_exits(tmp)){
+			fprintf(stderr,  "%s does not exist...\n", tmp);
+			free(tmp);
+			return false;
+		}
+		else {
+			syx_setup_workdir(tmp);
+		}
+		free(tmp);
 	}
-	else {
-		setup_redqueen_workdir(tmp);
-	}
-	free(tmp);
-
-	init_redqueen_state();
-
-  if(s->dump_pt_trace){
-	assert(asprintf(&tmp, "%s/pt_trace_dump_%d", workdir, id) != -1);
-	pt_trace_dump_init(tmp);
-	free(tmp);
-  }
-
-  if(s->edge_cb_trace){
-	redqueen_trace_init();
-  }
 
 
 	assert(asprintf(&tmp, "%s/aux_buffer_%d", workdir, id) != -1);
@@ -390,6 +409,7 @@ static bool verify_sharedir_state(nyx_interface_state *s, Error **errp){
 
 static void nyx_realize(DeviceState *dev, Error **errp){
 	nyx_interface_state *s = NYX_MEM(dev);
+	bool syx_sym_tcg_enabled = s->syx_sym_tcg;
 
 	if(s->bitmap_size <= 0){
 		s->bitmap_size = DEFAULT_NYX_BITMAP_SIZE;
@@ -404,8 +424,10 @@ static void nyx_realize(DeviceState *dev, Error **errp){
 	if(s->cow_primary_size){
 		set_global_cow_cache_primary_size(s->cow_primary_size);
 	}
-	GET_GLOBAL_STATE()->worker_id = s->worker_id;
 
+	GET_GLOBAL_STATE()->worker_id = s->worker_id;
+	GET_GLOBAL_STATE()->syx_sym_tcg_enabled = syx_sym_tcg_enabled;
+	
 	if (!s->workdir || !verify_workdir_state(s, errp)){
 		fprintf(stderr, "[QEMU-Nyx] Error:  work dir...\n");
 		exit(1);
@@ -457,6 +479,7 @@ static Property nyx_interface_properties[] = {
 	DEFINE_PROP_UINT32("input_buffer_size", nyx_interface_state, input_buffer_size, DEFAULT_NYX_BITMAP_SIZE),
 	DEFINE_PROP_BOOL("dump_pt_trace", nyx_interface_state, dump_pt_trace, false),
 	DEFINE_PROP_BOOL("edge_cb_trace", nyx_interface_state, edge_cb_trace, false),
+	DEFINE_PROP_BOOL("syx_sym_tcg", nyx_interface_state, syx_sym_tcg, false),
 
 
 	DEFINE_PROP_END_OF_LIST(),

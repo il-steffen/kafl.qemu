@@ -26,6 +26,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "nyx/state/state.h"
 #include "nyx/debug.h"
 #include "nyx/trace_dump.h"
+#include "nyx/syx/syx.h"
 
 /* experimental feature (currently broken)
  * enabled via trace mode
@@ -75,8 +76,6 @@ void check_auxiliary_config_buffer(auxilary_buffer_t* auxilary_buffer, auxilary_
   uint8_t changed = 0;
   VOLATILE_READ_8(changed, auxilary_buffer->configuration.changed);
   if (changed){
-
-  
     uint8_t aux_byte;
 
     VOLATILE_READ_8(aux_byte, auxilary_buffer->configuration.redqueen_mode);
@@ -87,14 +86,22 @@ void check_auxiliary_config_buffer(auxilary_buffer_t* auxilary_buffer, auxilary_
         GET_GLOBAL_STATE()->redqueen_enable_pending = true;
 	      GET_GLOBAL_STATE()->redqueen_instrumentation_mode = REDQUEEN_LIGHT_INSTRUMENTATION;
       }
-    }
-    else{
+    } else{
       /* disable redqueen mode */
       if(aux_byte != shadow_config->redqueen_mode){
         GET_GLOBAL_STATE()->in_redqueen_reload_mode = false;
         GET_GLOBAL_STATE()->redqueen_disable_pending = true;
 	      GET_GLOBAL_STATE()->redqueen_instrumentation_mode = REDQUEEN_NO_INSTRUMENTATION;
       }
+    }
+
+    /* SYX mode */
+    VOLATILE_READ_8(aux_byte, auxilary_buffer->configuration.syx_symbolic_run);
+    if (aux_byte) {
+      GET_GLOBAL_STATE()->syx_sym_tcg_enabled = true;
+      VOLATILE_READ_64(GET_GLOBAL_STATE()->syx_phys_addr, auxilary_buffer->configuration.syx_phys_addr);
+      VOLATILE_READ_64(GET_GLOBAL_STATE()->syx_virt_addr, auxilary_buffer->configuration.syx_virt_addr);
+      VOLATILE_READ_32(GET_GLOBAL_STATE()->syx_len, auxilary_buffer->configuration.syx_len);
     }
 
     VOLATILE_READ_8(aux_byte, auxilary_buffer->configuration.trace_mode);
@@ -179,10 +186,11 @@ void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer){
   VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_timeout);
 }
 
-void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_addr, unsigned len) {
+void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, uint64_t start_virt_addr, unsigned len) {
   VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_syx_start);
 
-  VOLATILE_WRITE_64(auxilary_buffer->result.syx_addr, start_addr);
+  VOLATILE_WRITE_64(auxilary_buffer->result.syx_phys_addr, start_phys_addr);
+  VOLATILE_WRITE_64(auxilary_buffer->result.syx_virt_addr, start_virt_addr);
   VOLATILE_WRITE_32(auxilary_buffer->result.syx_len, len);
 }
 

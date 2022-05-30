@@ -141,6 +141,10 @@ int main(int argc, char **argv)
 #include "nyx/fast_vm_reload_sync.h"
 #endif
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx.h"
+#endif
+
 #define MAX_VIRTIO_CONSOLES 1
 
 static const char *data_dir[16];
@@ -4661,6 +4665,10 @@ int main(int argc, char **argv, char **envp)
             }
         }
     }
+#endif
+
+#ifdef QEMU_SYX
+    syx_init();
 #endif
 
     if (loadvm) {

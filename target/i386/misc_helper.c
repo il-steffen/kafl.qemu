@@ -76,7 +76,7 @@ void helper_outl(CPUX86State *env, uint32_t port, uint32_t data)
 #ifdef QEMU_NYX
     /* handle NYX hypercall via vmware backdoor */
     if(port == 0x5658 && data == 0x8080801f){
-        handle_kafl_hypercall(NULL, qemu_get_cpu(0), env->regs[R_EBX]+100, env->regs[R_ECX]);
+        handle_kafl_hypercall(qemu_get_cpu(0), env->regs[R_EBX]+100, env->regs[R_ECX]);
         return;
     }
 #endif

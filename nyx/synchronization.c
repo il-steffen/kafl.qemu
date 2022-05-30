@@ -430,7 +430,7 @@ void synchronization_disable_pt(CPUState *cpu){
 }
 
 void synchronization_enter_fuzzing_loop(CPUState *cpu){
-	if (pt_enable(cpu, false) == 0){
+	if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled && pt_enable(cpu, false) == 0){
 		cpu->pt_enabled = true;
 	}
 	in_fuzzing_loop = true;

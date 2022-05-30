@@ -304,7 +304,6 @@ static void *sym_load_guest_internal(CPUArchState *env,
 {
     /* Try an alternative address */
     if (addr_expr != NULL) {
-        printf("OK!!\n");
         _sym_push_path_constraint(
             _sym_build_equal(
                 addr_expr, _sym_build_integer(addr, sizeof(addr) * 8)),

@@ -30,6 +30,7 @@
 #include "cpu.h"
 #include "sysemu/cpus.h"
 #include "qemu/main-loop.h"
+#include "nyx/helpers.h"
 
 unsigned long tcg_tb_size;
 
@@ -61,6 +62,7 @@ static void tcg_handle_interrupt(CPUState *cpu, int mask)
 static int tcg_init(MachineState *ms)
 {
     tcg_exec_init(tcg_tb_size * 1024 * 1024);
+    enable_tcg_mode();
     cpu_interrupt_handler = tcg_handle_interrupt;
     return 0;
 }

@@ -44,8 +44,7 @@ static uint64_t get_48_paging_phys_addr(uint64_t cr3, uint64_t addr, bool read_f
 mem_mode_t get_current_mem_mode(CPUState *cpu){
 	nyx_get_registers(cpu);
 
-	X86CPU *cpux86 = X86_CPU(cpu);
-	CPUX86State *env = &cpux86->env;
+	CPUX86State *env = &(X86_CPU(cpu))->env;
 
 	if (!(env->cr[0] & CR0_PG_MASK)) {
         return mm_32_protected;

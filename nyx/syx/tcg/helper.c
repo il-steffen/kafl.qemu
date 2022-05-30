@@ -6,17 +6,20 @@
 #include "nyx/syx/tcg/tcg-runtime-syx.h"
 #include "linux-headers/linux/kvm.h"
 #include "nyx/syx/syx.h"
+#include "nyx/hypercall/hypercall.h"
 
 void helper_vmcall(CPUX86State *env) {
     uint64_t hypercall_id = env->regs[R_EAX];
-    uint64_t hypercall_nb = env->regs[R_EBX];
+    uint64_t hypercall_nb = env->regs[R_EBX]+100;
     uint64_t hypercall_param1 = env->regs[R_ECX];
     uint64_t hypercall_param2 = env->regs[R_EDX];
     target_ulong hypercall_ret = 0;
+    CPUState* cpu = env_cpu(env);
 
     if (hypercall_id == HYPERCALL_KAFL_RAX_ID) {
-        SYX_PRINTF("VMCALL detected with parameter 0x%ld\n", hypercall_nb);
-
+        if (hypercall_nb >= KVM_EXIT_KAFL_ACQUIRE && hypercall_nb < KVM_EXIT_KAFL_ACQUIRE + 100) {
+            handle_kafl_hypercall(cpu, hypercall_nb, hypercall_param1);
+        }
         // if (hypercall_nb == KVM_EXIT_KAFL_SYX_INIT) {
         //     syx_init();
         //     syx_enable(env);
