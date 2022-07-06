@@ -1146,8 +1146,18 @@ extern const VMStateInfo vmstate_info_gtree;
 #define VMSTATE_END_OF_LIST()                                         \
     {}
 
+// iothread mutex must be locked
 int vmstate_load_state(QEMUFile *f, const VMStateDescription *vmsd,
                        void *opaque, int version_id);
+/**
+ * @brief Save an object according to its description in a QEMUFile.
+ * 
+ * @param f Save destination
+ * @param vmsd Description of what should be saved.
+ * @param opaque The object to save according to vmsd.
+ * @param vmdesc Save in the QJSON format.
+ * @return 0 if no error, something else otherwise.
+ */
 int vmstate_save_state(QEMUFile *f, const VMStateDescription *vmsd,
                        void *opaque, QJSON *vmdesc);
 int vmstate_save_state_v(QEMUFile *f, const VMStateDescription *vmsd,

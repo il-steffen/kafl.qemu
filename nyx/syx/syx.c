@@ -7,6 +7,7 @@
 
 #include "syx.h"
 #include "kvm/event.h"
+#include "tcg/snapshot/snapshot.h"
 
 #include "nyx/helpers.h"
 #include "nyx/memory_access.h"
@@ -36,6 +37,9 @@ struct SYXState {
      */
     char* syx_sym_output_f;
     int syx_sym_output_fd;
+
+    void* host_input_addr;
+    size_t input_len;
 };
 
 typedef struct SYXState SYXState;
@@ -63,18 +67,14 @@ void syx_init_symbolic_backend(hwaddr phys_addr, vaddr virt_addr, size_t len) {
 	CPUX86State *env = &x86_cpu->env;
     int mmu_idx = cpu_mmu_index(env, false);
 
-    SYX_PRINTF("Initialize Symbolic Backend:\n");
-    printf("\t- Physical Address: 0x%lx\n", phys_addr);
-    printf("\t- Virtual Address: 0x%lx\n", virt_addr);
-    printf("\t- Length: 0x%lu\n\n", len);
-
     uint8_t* input_to_symbolize = g_new0(uint8_t, len);
 
     read_virtual_memory(virt_addr, input_to_symbolize, len, cpu);
 
-    SYX_PRINTF("Symbolized Input: %s\n\n", input_to_symbolize);
-
     void *host_addr = tlb_vaddr_to_host(env, virt_addr, MMU_DATA_LOAD, mmu_idx);
+
+    syx_state.host_input_addr = host_addr;
+    syx_state.input_len = len;
 
     _sym_initialize((char*) input_to_symbolize, (char*) host_addr, len, syx_state.syx_sym_output_f);
 }
@@ -122,4 +122,21 @@ void syx_event_memory_access_disable(void) {
 
 MemoryRegion* syx_get_container_mr(void) {
     return &syx_state.root_mr;
+}
+
+void syx_end_run(CPUState* cpu) {
+    _sym_analyze_run();
+    sleep(4);
+}
+
+void syx_start_new_run(CPUState* cpu) {
+	tcg_snapshot_restore_root(cpu);
+    char* new_input = _sym_start_new_run();
+    if (!new_input) {
+        SYX_PRINTF("END OF RUN\n");
+        exit(0);
+    }
+    memcpy(syx_state.host_input_addr, new_input, syx_state.input_len);
+
+    SYX_PRINTF("New run ready!\n");
 }

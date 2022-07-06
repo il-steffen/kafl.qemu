@@ -230,7 +230,5 @@ DEF_HELPER_3(rcrq, tl, env, tl, tl)
 DEF_HELPER_1(rdrand, tl, env)
 
 #ifdef QEMU_SYX
-/* VMX */
-DEF_HELPER_1(vmcall, void, env)
-DEF_HELPER_2(check_syx_mmio, void, env, ptr)
+#include "nyx/syx/tcg/i386/helper.h"
 #endif

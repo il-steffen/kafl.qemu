@@ -1,8 +1,11 @@
 #pragma once
 typedef uint64_t vaddr;
 
+#define SymExpr void*
 
 #include "exec/memory.h"
+
+#include "RuntimeCommon.h"
 
 #define SYX_PRINTF(format, ...)     fprintf(stderr, ("[QEMU-Syx] " format), ##__VA_ARGS__)
 
@@ -18,7 +21,9 @@ void syx_init(void);
 void syx_init_symbolic_backend(hwaddr phys_addr, vaddr virt_addr, size_t len);
 void syx_setup_workdir(char* workdir);
 
-/** KVM functions **/
+// Run management
+void syx_end_run(CPUState* cpu);
+void syx_start_new_run(CPUState* cpu);
 
 // Events
 
@@ -36,3 +41,5 @@ void syx_event_memory_access_disable(void);
 // Misc
 void syx_snapshot_and_start_symbolic(void);
 MemoryRegion* syx_get_container_mr(void);
+
+const char* sym_solver_to_string(void);

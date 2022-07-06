@@ -63,8 +63,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef QEMU_SYX
 #include "nyx/syx/syx.h"
-typedef void* SymExpr;
-#include "RuntimeCommon.h"
+#include "nyx/syx/tcg/snapshot/snapshot.h"
 #endif
 
 //#define DEBUG_HPRINTF
@@ -150,6 +149,11 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 					QEMU_PT_PRINTF(CORE_PREFIX, "...DONE!!!!");
 					qemu_mutex_unlock_iothread();
 					*/
+				// } else {
+				// 	request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
+				//	printf("[QEMU-SYX] Snapshot done.\n");
+				} else {
+					tcg_snapshot_init(cpu, 4096);
 				}
 
 				setup_snapshot_once = true;
@@ -862,8 +866,6 @@ static void handle_hypercall_kafl_persist_page_past_snapshot(CPUState *cpu, uint
 
 #ifdef QEMU_SYX
 static void handle_hypercall_kafl_syx_init(CPUState *cpu, uint64_t hypercall_arg){
-	qemu_mutex_lock_iothread();
-	qemu_mutex_unlock_iothread();
 }
 
 static void handle_hypercall_kafl_syx_add_memory_access(CPUState *cpu, uint64_t hypercall_arg){
@@ -886,6 +888,7 @@ static void handle_hypercall_kafl_syx_add_memory_access(CPUState *cpu, uint64_t 
         if (vaddr_to_hook == GET_GLOBAL_STATE()->syx_virt_addr
             && mem_len == GET_GLOBAL_STATE()->syx_len) {
                 syx_init_symbolic_backend(page_phys_addr_to_hook, vaddr_to_hook, mem_len);
+				tcg_snapshot_init(cpu, 4096);
             } else {
                 SYX_PRINTF("Not initializing symbolic execution\n");
                 SYX_PRINTF("\t- Phys symbolized: 0x%lx | Phys hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_phys_addr, page_phys_addr_to_hook);
@@ -900,6 +903,20 @@ static void handle_hypercall_kafl_syx_disable_memory_access(CPUState* cpu, uint6
 	qemu_mutex_lock_iothread();
 	syx_event_memory_access_disable();
 	qemu_mutex_unlock_iothread();
+}
+
+static void handle_hypercall_kafl_syx_enable_tcg_snapshot(CPUState* cpu, uint64_t arg) {
+	tcg_snapshot_init(cpu, 4096);
+}
+
+static void handle_hypercall_kafl_syx_restore_root_snapshot(CPUState* cpu, uint64_t arg) {
+	tcg_snapshot_restore_root(cpu);
+}
+
+static void handle_hypercall_kafl_syx_end(CPUState* cpu, uint64_t arg) {
+	printf("[SYX] End of run. Executing post-run functions...\n");
+	syx_end_run(cpu);
+	syx_start_new_run(cpu);
 }
 #endif
 
@@ -1119,6 +1136,24 @@ int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg){
 		case KVM_EXIT_KAFL_SYX_DISABLE_MEMORY_ACCESS:
 			handle_hypercall_kafl_syx_disable_memory_access(cpu, arg);
 			ret = 0;
+			break;
+		case KVM_EXIT_KAFL_SYX_ENABLE_SNAPSHOT:
+			if (is_enabled_tcg_mode()) {
+				handle_hypercall_kafl_syx_enable_tcg_snapshot(cpu, arg);
+				ret = 0;
+			}
+			break;
+		case KVM_EXIT_KAFL_SYX_RESTORE_ROOT_SNAPSHOT:
+			if (is_enabled_tcg_mode()) {
+				handle_hypercall_kafl_syx_restore_root_snapshot(cpu, arg);
+				ret = 0;
+			}
+			break;
+		case KVM_EXIT_KAFL_SYX_END:
+			if (is_enabled_tcg_mode()) {
+				handle_hypercall_kafl_syx_end(cpu,arg);
+				ret = 0;
+			}
 			break;
 #endif
 	}

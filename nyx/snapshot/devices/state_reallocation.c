@@ -36,42 +36,12 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 //uint32_t fpos = 0;
 #define QEMU_VM_SUBSECTION           0x05
 
-typedef struct CompatEntry {
-    char idstr[256];
-    int instance_id;
-} CompatEntry;
-
-typedef struct SaveStateEntry {
-    QTAILQ_ENTRY(SaveStateEntry) entry;
-    char idstr[256];
-    int instance_id;
-    int alias_id;
-    int version_id;
-    int load_version_id;
-    int section_id;
-    int load_section_id;
-    SaveVMHandlers *ops;
-    const VMStateDescription *vmsd;
-    CompatEntry *opaque;
-    CompatEntry *compat;
-    int is_ram;
-} SaveStateEntry;
-
 struct LoadStateEntry {
     QLIST_ENTRY(LoadStateEntry) entry;
     SaveStateEntry *se;
     int section_id;
     int version_id;
 };
-
-typedef struct SaveState {
-    QTAILQ_HEAD(, SaveStateEntry) handlers;
-    int global_section_id;
-    bool skip_configuration;
-    uint32_t len;
-    const char *name;
-    uint32_t target_page_bits;
-} SaveState;
 
 extern void* vmstate_configuration;
 extern SaveState savevm_state;

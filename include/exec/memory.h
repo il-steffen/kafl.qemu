@@ -1225,7 +1225,8 @@ int memory_region_get_fd(MemoryRegion *mr);
  *
  * Given a host pointer inside a RAM memory region (created with
  * memory_region_init_ram() or memory_region_init_ram_ptr()), return
- * the MemoryRegion and the offset within it.
+ * the MemoryRegion and the offset within it. If no memory region is
+ * found, NULL is returned.
  *
  * Use with care; by the time this function returns, the returned pointer is
  * not protected by RCU anymore.  If the caller is not within an RCU critical

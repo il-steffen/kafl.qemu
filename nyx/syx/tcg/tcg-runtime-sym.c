@@ -298,7 +298,7 @@ void *HELPER(sym_bswap)(void *expr, uint64_t length)
 }
 
 static void *sym_load_guest_internal(CPUArchState *env,
-                                     target_ulong addr, void *addr_expr,
+                                     hwaddr addr, void *addr_expr,
                                      uint64_t load_length, uint8_t result_length,
                                      target_ulong mmu_idx)
 {
@@ -655,4 +655,8 @@ void HELPER(sym_notify_block)(uint64_t block_id)
 void HELPER(sym_collect_garbage)(void)
 {
     _sym_collect_garbage();
+}
+
+const char* sym_solver_to_string(void) {
+    return _sym_solver_to_string();
 }

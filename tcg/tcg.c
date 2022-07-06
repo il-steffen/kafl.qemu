@@ -65,6 +65,8 @@
 #include "exec/log.h"
 #include "sysemu/sysemu.h"
 
+#include "nyx/syx/tcg/snapshot/snapshot.h"
+
 /* Forward declarations for functions declared in tcg-target.inc.c and
    used here. */
 static void tcg_target_init(TCGContext *s);

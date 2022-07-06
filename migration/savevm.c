@@ -224,45 +224,6 @@ const VMStateInfo vmstate_info_timer = {
     .put  = put_timer,
 };
 
-
-typedef struct CompatEntry {
-    char idstr[256];
-    int instance_id;
-} CompatEntry;
-
-typedef struct SaveStateEntry {
-    QTAILQ_ENTRY(SaveStateEntry) entry;
-    char idstr[256];
-    int instance_id;
-    int alias_id;
-    int version_id;
-    /* version id read from the stream */
-    int load_version_id;
-    int section_id;
-    /* section id read from the stream */
-    int load_section_id;
-    const SaveVMHandlers *ops;
-    const VMStateDescription *vmsd;
-    void *opaque;
-    CompatEntry *compat;
-    int is_ram;
-} SaveStateEntry;
-
-typedef struct SaveState {
-    QTAILQ_HEAD(, SaveStateEntry) handlers;
-    int global_section_id;
-    uint32_t len;
-#ifndef QEMU_NYX
-    const char *name;
-#else
-    char *name;
-#endif
-    uint32_t target_page_bits;
-    uint32_t caps_count;
-    MigrationCapability *capabilities;
-    QemuUUID uuid;
-} SaveState;
-
 #ifndef QEMU_NYX
 static SaveState savevm_state = {
 #else
@@ -1624,6 +1585,7 @@ int qemu_save_device_state(QEMUFile *f)
     SaveStateEntry *se;
 
     if (!migration_in_colo_state()) {
+        printf("[DEBUG] writing magic + version\n");
         qemu_put_be32(f, QEMU_VM_FILE_MAGIC);
         qemu_put_be32(f, QEMU_VM_FILE_VERSION);
     }

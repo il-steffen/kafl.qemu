@@ -32,6 +32,10 @@
 #include "trace-tcg.h"
 #include "exec/log.h"
 
+#ifdef QEMU_SYX
+#include "nyx/syx/tcg/i386/cpu.h"
+#endif
+
 #define PREFIX_REPZ   0x01
 #define PREFIX_REPNZ  0x02
 #define PREFIX_LOCK   0x04
@@ -7374,7 +7378,12 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             break;
 #ifdef QEMU_SYX
         case 0xc1: /* vmcall */
-            gen_helper_vmcall(cpu_env);
+            tcg_gen_movi_tl(s->T0, s->pc - s->cs_base);
+            gen_op_jmp_v(s->T0);
+            gen_helper_vmcall(s->T1, cpu_env);
+            gen_op_jmp_v(s->T1);
+            gen_bnd_jmp(s);
+            gen_jr(s, s->T1);
             break;
 #endif
         case 0xc8: /* monitor */

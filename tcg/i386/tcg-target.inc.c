@@ -2153,6 +2153,8 @@ static void tcg_out_qemu_st_direct(TCGContext *s, TCGReg datalo, TCGReg datahi,
         movop = OPC_MOVBE_MyGy;
     }
 
+    tcg_out_call(s, tcg_snapshot_dirty_list_add_tcg_target);
+
     switch (memop & MO_SIZE) {
     case MO_8:
         /* In 32-bit mode, 8-bit stores can only happen from [abcd]x.

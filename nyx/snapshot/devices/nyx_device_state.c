@@ -76,33 +76,6 @@ static void save_tsc_value(nyx_device_state_t* self, bool incremental_mode){
 
 extern int qemu_savevm_state(QEMUFile *f, Error **errp);
 
-/* new savevm routine */
-typedef struct SaveStateEntry {
-    QTAILQ_ENTRY(SaveStateEntry) entry;
-    char idstr[256];
-    int instance_id;
-    int alias_id;
-    int version_id;
-    int load_version_id;
-    int section_id;
-    int load_section_id;
-    SaveVMHandlers *ops;
-    const VMStateDescription *vmsd;
-    void *opaque;
-    void *compat;
-    int is_ram;
-} SaveStateEntry;
-
-
-typedef struct SaveState {
-    QTAILQ_HEAD(, SaveStateEntry) handlers;
-    int global_section_id;
-    bool skip_configuration;
-    uint32_t len;
-    const char *name;
-    uint32_t target_page_bits;
-} SaveState;
-
 extern SaveState savevm_state;
 
 extern void vmstate_save(QEMUFile *f, SaveStateEntry *se, QJSON *vmdesc);
