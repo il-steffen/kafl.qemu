@@ -24,7 +24,7 @@
 #include "sysemu/runstate.h"
 #include "exec/helper-proto.h"
 #ifdef QEMU_SYX
-#include "nyx/syx/tcg/snapshot/snapshot.h"
+#include "nyx/syx/syx-snapshot/syx-snapshot.h"
 #endif
 
 void helper_raise_interrupt(CPUX86State *env, int intno, int next_eip_addend)
@@ -655,9 +655,11 @@ do_check_protect_pse36:
 
     assert(prot & (1 << is_write1));
 
-    if (tcg_snapshot_is_enabled() && is_write1) {
-        tcg_snapshot_dirty_list_add(paddr);
+#ifdef QEMU_SYX
+    if (syx_snapshot_is_enabled() && is_write1) {
+        syx_snapshot_dirty_list_add(paddr);
     }
+#endif
 
     tlb_set_page_with_attrs(cs, vaddr, paddr, cpu_get_mem_attrs(env),
                             prot, mmu_idx, page_size);

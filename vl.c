@@ -36,6 +36,8 @@
 #include "sysemu/seccomp.h"
 #include "sysemu/tcg.h"
 
+#include "nyx/syx/syx-common.h"
+
 #ifdef CONFIG_SDL
 #if defined(__APPLE__) || defined(main)
 #include <SDL.h>
@@ -139,10 +141,6 @@ int main(int argc, char **argv)
 #include "nyx/fast_vm_reload.h"
 #include "nyx/state/state.h"
 #include "nyx/fast_vm_reload_sync.h"
-#endif
-
-#ifdef QEMU_SYX
-#include "nyx/syx/syx.h"
 #endif
 
 #define MAX_VIRTIO_CONSOLES 1
@@ -4568,7 +4566,8 @@ int main(int argc, char **argv, char **envp)
 
 #ifdef QEMU_NYX
     fast_reload_init(GET_GLOBAL_STATE()->fast_reload_snapshot);
-
+    syx_init(GET_GLOBAL_STATE()->syx_sym_tcg_enabled);
+    
     if (fast_vm_reload){
 
         if(getenv("NYX_DISABLE_BLOCK_COW")){
@@ -4665,10 +4664,6 @@ int main(int argc, char **argv, char **envp)
             }
         }
     }
-#endif
-
-#ifdef QEMU_SYX
-    syx_init();
 #endif
 
     if (loadvm) {

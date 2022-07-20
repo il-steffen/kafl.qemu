@@ -211,6 +211,7 @@ void synchronization_lock_hprintf(void){
 void synchronization_lock(void){
 
 	timeout_detector_t timer = GET_GLOBAL_STATE()->timeout_detector;
+	bool must_relock_iothread = false;
 	pthread_mutex_lock(&synchronization_lock_mutex);
 	run_counter++;
 
@@ -255,8 +256,16 @@ void synchronization_lock(void){
 
 	interface_send_char(NYX_INTERFACE_PING);
 
+	if (qemu_mutex_iothread_locked()) {
+		qemu_mutex_unlock_iothread();
+		must_relock_iothread = true;
+	}
 	pthread_cond_wait(&synchronization_lock_condition, &synchronization_lock_mutex);
 	pthread_mutex_unlock(&synchronization_lock_mutex);
+	if (must_relock_iothread) {
+		qemu_mutex_lock_iothread();
+		must_relock_iothread = false;
+	}
 
 	check_auxiliary_config_buffer(GET_GLOBAL_STATE()->auxilary_buffer, &GET_GLOBAL_STATE()->shadow_config);
 

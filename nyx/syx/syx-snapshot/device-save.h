@@ -11,3 +11,4 @@ typedef struct device_save_state_s {
 
 device_save_state_t* device_save_all(void);
 void device_restore_all(device_save_state_t* device_save_state);
+void device_free_all(device_save_state_t* dss);

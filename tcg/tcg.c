@@ -65,8 +65,6 @@
 #include "exec/log.h"
 #include "sysemu/sysemu.h"
 
-#include "nyx/syx/tcg/snapshot/snapshot.h"
-
 /* Forward declarations for functions declared in tcg-target.inc.c and
    used here. */
 static void tcg_target_init(TCGContext *s);
@@ -343,6 +341,9 @@ static void set_jmp_reset_offset(TCGContext *s, int which)
     assert(s->tb_jmp_reset_offset[which] == off);
 }
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx-snapshot/syx-snapshot.h"
+#endif
 #include "tcg-target.inc.c"
 
 /* compare a pointer @ptr and a tb_tc @s */

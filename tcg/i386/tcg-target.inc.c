@@ -2153,7 +2153,9 @@ static void tcg_out_qemu_st_direct(TCGContext *s, TCGReg datalo, TCGReg datahi,
         movop = OPC_MOVBE_MyGy;
     }
 
-    tcg_out_call(s, tcg_snapshot_dirty_list_add_tcg_target);
+#ifdef QEMU_SYX
+    tcg_out_call(s, (tcg_insn_unit*) syx_snapshot_dirty_list_add_tcg_target);
+#endif
 
     switch (memop & MO_SIZE) {
     case MO_8:

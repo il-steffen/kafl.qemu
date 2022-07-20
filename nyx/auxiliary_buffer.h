@@ -23,6 +23,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stddef.h>
 
 #include "exec/hwaddr.h"
 
@@ -57,7 +58,9 @@ enum nyx_result_codes {
   rc_aborted = 5,
   rc_sanitizer = 6, 
   rc_starved = 7,
-  rc_syx_start = 8
+  rc_syx_sym_new = 8,
+  rc_syx_sym_flush = 9,
+  rc_syx_sym_wait = 10
 };
 
 typedef struct auxilary_buffer_header_s{
@@ -141,7 +144,8 @@ typedef struct auxilary_buffer_result_s{
 
   uint64_t syx_phys_addr;
   uint64_t syx_virt_addr;
-  uint32_t syx_len;
+  uint64_t syx_len;
+  uint64_t syx_fuzz_offset;
 
   /* more to come */
 } __attribute__((packed)) auxilary_buffer_result_t;
@@ -182,7 +186,9 @@ void check_auxiliary_config_buffer(auxilary_buffer_t* auxilary_buffer, auxilary_
 void set_crash_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_asan_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
-void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, vaddr start_virt_addr, unsigned len);
+void set_syx_sym_new_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, vaddr start_virt_addr, uint64_t len, size_t fuzz_offset);
+void set_syx_sym_flush_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
+void set_syx_sym_wait_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_reload_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_pt_overflow_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_exec_done_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, uint32_t sec, uint32_t usec, uint32_t num_dirty_pages);

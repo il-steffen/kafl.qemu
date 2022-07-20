@@ -1,10 +1,10 @@
 #include "qemu/osdep.h"
-#include "nyx/syx/syx.h"
 #include "device-save.h"
 #include "migration/qemu-file.h"
 #include "qemu-file-ram.h"
 #include "migration/vmstate.h"
 #include "qemu/main-loop.h"
+#include "nyx/syx/syx-misc.h"
 
 #include "migration/savevm.h"
 
@@ -47,8 +47,8 @@ device_save_state_t* device_save_all(void) {
         ret = vmstate_save(f, se, NULL);
 
         if (ret) {
-            SYX_PRINTF("ERROR: %d\n", ret);
-            return NULL;
+            SYX_PRINTF("Device save all error: %d\n", ret);
+            abort();
         }
 
         save_section_footer(f, se);
@@ -64,12 +64,14 @@ device_save_state_t* device_save_all(void) {
 }
 
 void device_restore_all(device_save_state_t* device_save_state) {
-    qemu_mutex_lock_iothread();
     QEMUFile* f = qemu_file_ram_read_new(device_save_state->save_buffer, QEMU_FILE_RAM_LIMIT);
     
     qemu_load_device_state(f);
 
     qemu_load_device_state(f);
     qemu_fclose(f);
-    qemu_mutex_unlock_iothread();
+}
+
+void device_free_all(device_save_state_t* dss) {
+    g_free(dss->save_buffer);
 }

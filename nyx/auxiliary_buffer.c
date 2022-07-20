@@ -26,7 +26,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "nyx/state/state.h"
 #include "nyx/debug.h"
 #include "nyx/trace_dump.h"
-#include "nyx/syx/syx.h"
+#include "nyx/syx/syx-common.h"
 
 /* experimental feature (currently broken)
  * enabled via trace mode
@@ -186,12 +186,21 @@ void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer){
   VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_timeout);
 }
 
-void set_syx_start_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, uint64_t start_virt_addr, unsigned len) {
-  VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_syx_start);
+void set_syx_sym_new_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, uint64_t start_virt_addr, uint64_t len, size_t fuzz_offset) {
+  VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_syx_sym_new);
 
   VOLATILE_WRITE_64(auxilary_buffer->result.syx_phys_addr, start_phys_addr);
   VOLATILE_WRITE_64(auxilary_buffer->result.syx_virt_addr, start_virt_addr);
-  VOLATILE_WRITE_32(auxilary_buffer->result.syx_len, len);
+  VOLATILE_WRITE_64(auxilary_buffer->result.syx_len, len);
+  VOLATILE_WRITE_64(auxilary_buffer->result.syx_fuzz_offset, fuzz_offset);
+}
+
+void set_syx_sym_flush_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer) {
+  VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_syx_sym_flush);
+}
+
+void set_syx_sym_wait_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer) {
+  VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_syx_sym_wait);
 }
 
 void set_reload_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer){

@@ -141,6 +141,8 @@ int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg);
 
 void skip_init(void);
 
+void synchronization_lock_wrapper(void);
+
 typedef struct kafl_dump_file_s{
   uint64_t file_name_str_ptr;
   uint64_t data_ptr;

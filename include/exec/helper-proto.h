@@ -42,7 +42,7 @@ dh_ctype(ret) HELPER(name) (dh_ctype(t1), dh_ctype(t2), dh_ctype(t3), \
 #include "tcg-runtime.h"
 #include "plugin-helpers.h"
 #ifdef QEMU_SYX
-#include "nyx/syx/tcg/tcg-runtime-sym.h"
+#include "nyx/syx/syx-sym/tcg/tcg-runtime-sym.h"
 #endif
 
 #undef DEF_HELPER_FLAGS_0

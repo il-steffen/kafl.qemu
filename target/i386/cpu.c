@@ -65,6 +65,8 @@
 
 #include "disas/capstone.h"
 
+#include "nyx/syx/syx-common.h"
+
 #ifdef QEMU_SYX
 #define SymExpr void*
 #include "RuntimeCommon.h"
@@ -6856,6 +6858,7 @@ static void x86_cpu_initfn(Object *obj)
     CPUX86State *env = &cpu->env;
     FeatureWord w;
 
+    syx_set_arch(SYX_ARCH_X86);
 #ifdef QEMU_SYX
     memset(cpu->env_exprs, 0, sizeof(cpu->env_exprs));
     _sym_register_expression_region(cpu->env_exprs, sizeof(cpu->env_exprs));
@@ -6944,6 +6947,8 @@ static void x86_cpu_initfn(Object *obj)
     if (xcc->model) {
         x86_cpu_load_model(cpu, xcc->model, &error_abort);
     }
+
+
 }
 
 static int64_t x86_cpu_get_arch_id(CPUState *cs)

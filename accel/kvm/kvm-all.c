@@ -56,6 +56,10 @@
 #include "nyx/helpers.h"
 #endif
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx-common.h"
+#endif
+
 /* This check must be after config-host.h is included */
 #ifdef CONFIG_EVENTFD
 #include <sys/eventfd.h>
@@ -1893,6 +1897,10 @@ static int kvm_init(MachineState *ms)
     const char *kvm_type;
 
     s = KVM_STATE(ms->accelerator);
+
+#ifdef QEMU_SYX
+    syx_set_accel(SYX_ACCEL_KVM);
+#endif
 
     /*
      * On systems where the kernel can support different base page

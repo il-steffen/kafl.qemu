@@ -14,7 +14,6 @@
 #include "nyx/memory_access.h"
 #include "nyx/debug.h"
 #include "nyx/helpers.h"
-#include "nyx/syx/syx.h"
 
 bool tcg_mode = false;
 

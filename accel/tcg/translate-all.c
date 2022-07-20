@@ -58,6 +58,10 @@
 #include "sysemu/cpus.h"
 #include "sysemu/tcg.h"
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx-common.h"
+#endif
+
 /* #define DEBUG_TB_INVALIDATE */
 /* #define DEBUG_TB_FLUSH */
 /* make various TB consistency checks */
@@ -1145,6 +1149,9 @@ static void tb_htable_init(void)
 void tcg_exec_init(unsigned long tb_size)
 {
     tcg_allowed = true;
+#ifdef QEMU_SYX
+    syx_set_accel(SYX_ACCEL_TCG);
+#endif
     cpu_gen_init();
     page_init();
     tb_htable_init();

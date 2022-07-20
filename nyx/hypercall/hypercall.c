@@ -61,10 +61,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "nyx/hypercall/debug.h"
 #include "nyx/helpers.h"
 
-#ifdef QEMU_SYX
-#include "nyx/syx/syx.h"
-#include "nyx/syx/tcg/snapshot/snapshot.h"
-#endif
+#include "nyx/syx/syx-common.h"
 
 //#define DEBUG_HPRINTF
 #define HPRINTF_SIZE	0x1000
@@ -126,7 +123,7 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 
 			if(!setup_snapshot_once){ 
 				//pt_reset_bitmap();
-				if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+				if (!syx_is_symbolic()) {
 					coverage_bitmap_reset();
 					request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
 
@@ -151,16 +148,15 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 					*/
 				// } else {
 				// 	request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
-				//	printf("[QEMU-SYX] Snapshot done.\n");
 				} else {
-					tcg_snapshot_init(cpu, 4096);
+					syx_set_snapshot(syx_snapshot_create(cpu, true));
 				}
 
 				setup_snapshot_once = true;
 				GET_GLOBAL_STATE()->in_fuzzing_mode = true;
 				set_state_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, 3);
 
-				if (GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+				if (syx_is_symbolic()) {
 					handle_hypercall_kafl_next_payload(cpu, hypercall_arg);
 				}
 				//sigprof_enabled = true;
@@ -168,6 +164,9 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 			}
 			else{
 				//set_illegal_payload();
+				if (syx_is_symbolic()) {
+					set_syx_sym_wait_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
+				}
 				synchronization_lock();
 				reset_timeout_detector(&GET_GLOBAL_STATE()->timeout_detector);
 				GET_GLOBAL_STATE()->in_fuzzing_mode = true;
@@ -377,8 +376,6 @@ void handle_hypercall_kafl_release(CPUState *cpu, uint64_t hypercall_arg){
 
 			if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
 				synchronization_disable_pt(cpu);
-			} else {
-					_sym_flush_results();
 			}
 
 			release_print_once(cpu);
@@ -509,6 +506,7 @@ static void handle_hypercall_kafl_submit_kasan(CPUState *cpu, uint64_t hypercall
 
 void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 	static char reason[1024];
+	printf("PANIC DETECTED!!!!\n");
 	if(hypercall_enabled){
 #ifdef PANIC_DEBUG
 		if(hypercall_arg){
@@ -864,64 +862,28 @@ static void handle_hypercall_kafl_persist_page_past_snapshot(CPUState *cpu, uint
 	fast_reload_blacklist_page(get_fast_reload_snapshot(), phys_addr);
 }
 
-#ifdef QEMU_SYX
-static void handle_hypercall_kafl_syx_init(CPUState *cpu, uint64_t hypercall_arg){
-}
-
-static void handle_hypercall_kafl_syx_add_memory_access(CPUState *cpu, uint64_t hypercall_arg){
+static int handle_hypercall_kafl_syx(CPUState* cpu) {
 	qemu_mutex_lock_iothread();
 	nyx_get_registers_fast(cpu);
 
-    X86CPU *x86_cpu = X86_CPU(cpu);
-    CPUX86State *env = &x86_cpu->env;
+	X86CPU* xcpu = X86_CPU(cpu);
+	CPUX86State* xstate = &(xcpu->env);
 
-	vaddr vaddr_to_hook = env->regs[R_ECX];
-	size_t mem_len = env->regs[R_EDX];
+	uint64_t hypercall = xstate->regs[R_ECX];
+	uint8_t namespace = (hypercall & SYX_NS_MASK) >> SYX_CMD_BITS;
+	uint32_t command = hypercall & SYX_CMD_MASK;
+	target_ulong target_opaque = xstate->regs[R_EDX];
+	uint64_t syx_api_version = xstate->regs[R_ESI];
 
-	hwaddr page_phys_addr_to_hook = get_paging_phys_addr(cpu, env->cr[3], vaddr_to_hook);
-
-    if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
-		syx_event_add_memory_access(page_phys_addr_to_hook, vaddr_to_hook, mem_len);
-    } else {
-        // Not using physical address for consistency reason...
-        // The check should be added once cross-snapshoting works.
-        if (vaddr_to_hook == GET_GLOBAL_STATE()->syx_virt_addr
-            && mem_len == GET_GLOBAL_STATE()->syx_len) {
-                syx_init_symbolic_backend(page_phys_addr_to_hook, vaddr_to_hook, mem_len);
-				tcg_snapshot_init(cpu, 4096);
-            } else {
-                SYX_PRINTF("Not initializing symbolic execution\n");
-                SYX_PRINTF("\t- Phys symbolized: 0x%lx | Phys hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_phys_addr, page_phys_addr_to_hook);
-                SYX_PRINTF("\t- Virt symbolized: 0x%lx | Virt hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_virt_addr, vaddr_to_hook);
-                SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
-            }
-    }
+	int ret = syx_handle(cpu, namespace, command, target_opaque, syx_api_version);
 	qemu_mutex_unlock_iothread();
-}
 
-static void handle_hypercall_kafl_syx_disable_memory_access(CPUState* cpu, uint64_t arg) {
-	qemu_mutex_lock_iothread();
-	syx_event_memory_access_disable();
-	qemu_mutex_unlock_iothread();
+	return ret;
 }
-
-static void handle_hypercall_kafl_syx_enable_tcg_snapshot(CPUState* cpu, uint64_t arg) {
-	tcg_snapshot_init(cpu, 4096);
-}
-
-static void handle_hypercall_kafl_syx_restore_root_snapshot(CPUState* cpu, uint64_t arg) {
-	tcg_snapshot_restore_root(cpu);
-}
-
-static void handle_hypercall_kafl_syx_end(CPUState* cpu, uint64_t arg) {
-	printf("[SYX] End of run. Executing post-run functions...\n");
-	syx_end_run(cpu);
-	syx_start_new_run(cpu);
-}
-#endif
 
 int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg){
 	int ret = -1;
+
 	//fprintf(stderr, "%s -> %ld\n", __func__, hypercall);
 	switch(hypercall){
 		case KVM_EXIT_KAFL_ACQUIRE:
@@ -1123,40 +1085,11 @@ int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg){
 			handle_hypercall_kafl_persist_page_past_snapshot(cpu, arg);
 			ret = 0;
 			break;
-#ifdef QEMU_SYX
-		/* SYX hypercalls */
-		case KVM_EXIT_KAFL_SYX_INIT:
-			handle_hypercall_kafl_syx_init(cpu, arg);
-			ret = 0;
+		case KVM_EXIT_KAFL_SYX:
+			ret = handle_hypercall_kafl_syx(cpu);
 			break;
-		case KVM_EXIT_KAFL_SYX_ADD_MEMORY_ACCESS:
-			handle_hypercall_kafl_syx_add_memory_access(cpu, arg);
-			ret = 0;
-			break;
-		case KVM_EXIT_KAFL_SYX_DISABLE_MEMORY_ACCESS:
-			handle_hypercall_kafl_syx_disable_memory_access(cpu, arg);
-			ret = 0;
-			break;
-		case KVM_EXIT_KAFL_SYX_ENABLE_SNAPSHOT:
-			if (is_enabled_tcg_mode()) {
-				handle_hypercall_kafl_syx_enable_tcg_snapshot(cpu, arg);
-				ret = 0;
-			}
-			break;
-		case KVM_EXIT_KAFL_SYX_RESTORE_ROOT_SNAPSHOT:
-			if (is_enabled_tcg_mode()) {
-				handle_hypercall_kafl_syx_restore_root_snapshot(cpu, arg);
-				ret = 0;
-			}
-			break;
-		case KVM_EXIT_KAFL_SYX_END:
-			if (is_enabled_tcg_mode()) {
-				handle_hypercall_kafl_syx_end(cpu,arg);
-				ret = 0;
-			}
-			break;
-#endif
 	}
+
 	return ret;
 }
 

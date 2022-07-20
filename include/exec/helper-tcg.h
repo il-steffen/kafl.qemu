@@ -66,7 +66,7 @@
 #include "tcg-runtime.h"
 #include "plugin-helpers.h"
 #ifdef QEMU_SYX
-#include "nyx/syx/tcg/tcg-runtime-sym.h"
+#include "nyx/syx/syx-sym/tcg/tcg-runtime-sym.h"
 #endif
 
 #undef str

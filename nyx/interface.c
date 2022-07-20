@@ -53,13 +53,13 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "nyx/helpers.h"
 #include "nyx/trace_dump.h"
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx-sym/syx-sym.h"
+#endif
+
 #include <time.h>
 
 #include "redqueen.h"
-
-#ifdef QEMU_SYX
-#include "nyx/syx/syx.h"
-#endif
 
 #define CONVERT_UINT64(x) (uint64_t)(strtoull(x, NULL, 16))
 
@@ -132,7 +132,7 @@ bool interface_send_char(char val){
 }
 
 static void nyx_interface_receive(void *opaque, const uint8_t * buf, int size){
-	int i;				
+	int i;
 	for(i = 0; i < size; i++){
 		switch(buf[i]){
 			case NYX_INTERFACE_PING:
@@ -326,7 +326,9 @@ static bool verify_workdir_state(nyx_interface_state *s, Error **errp){
 			return false;
 		}
 		else {
-			syx_setup_workdir(tmp);
+#ifdef QEMU_SYX
+			syx_sym_setup_workdir(tmp);
+#endif
 		}
 		free(tmp);
 	}

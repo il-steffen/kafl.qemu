@@ -134,6 +134,7 @@ void pt_dump(CPUState *cpu, int bytes){
 					break;
 				case decoder_error:
 					fprintf(stderr, "WARNING: libxdc_decode returned decoder_error\n");
+					abort();
 					break;
 			}
 		}
