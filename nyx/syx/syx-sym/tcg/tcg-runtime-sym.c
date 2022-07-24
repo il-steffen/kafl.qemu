@@ -657,6 +657,6 @@ void HELPER(sym_collect_garbage)(void)
     _sym_collect_garbage();
 }
 
-const char* sym_solver_to_string(void) {
+static const char* sym_solver_to_string(void) {
     return _sym_solver_to_string();
 }

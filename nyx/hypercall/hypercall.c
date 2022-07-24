@@ -71,15 +71,15 @@ char hprintf_buffer[HPRINTF_SIZE];
 
 static bool init_state = true;
 
-void skip_init(void){
+void skip_init(void) {
 	init_state = false;
 }
 
-bool pt_hypercalls_enabled(void){
+bool pt_hypercalls_enabled(void) {
 	return hypercall_enabled;
 }
 
-void pt_setup_enable_hypercalls(void){
+void pt_setup_enable_hypercalls(void) {
 	hypercall_enabled = true;
 }
 
@@ -100,7 +100,7 @@ void hypercall_commit_filter(void){
 bool setup_snapshot_once = false;
 
 
-bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
+bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg) {
 	//fprintf(stderr, "%s\n", __func__);
 /*
 	nyx_get_registers(cpu);
@@ -123,6 +123,7 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 
 			if(!setup_snapshot_once){ 
 				//pt_reset_bitmap();
+				// Nyx snapshot
 				if (!syx_is_symbolic()) {
 					coverage_bitmap_reset();
 					request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
@@ -148,7 +149,7 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 					*/
 				// } else {
 				// 	request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
-				} else {
+				} else { // Syx snapshot
 					syx_set_snapshot(syx_snapshot_create(cpu, true));
 				}
 
@@ -161,13 +162,13 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg){
 				}
 				//sigprof_enabled = true;
 				//reset_timeout_detector(&GET_GLOBAL_STATE()->timeout_detector);
-			}
-			else{
+			} else{
 				//set_illegal_payload();
 				if (syx_is_symbolic()) {
-					set_syx_sym_wait_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
+					syx_sym_run_start(cpu);
+				} else {
+					synchronization_lock();
 				}
-				synchronization_lock();
 				reset_timeout_detector(&GET_GLOBAL_STATE()->timeout_detector);
 				GET_GLOBAL_STATE()->in_fuzzing_mode = true;
 
@@ -374,7 +375,7 @@ void handle_hypercall_kafl_release(CPUState *cpu, uint64_t hypercall_arg){
 				GET_GLOBAL_STATE()->starved = 0;
 			}
 
-			if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
+			if (!is_enabled_tcg_mode()) {
 				synchronization_disable_pt(cpu);
 			}
 
@@ -506,7 +507,6 @@ static void handle_hypercall_kafl_submit_kasan(CPUState *cpu, uint64_t hypercall
 
 void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 	static char reason[1024];
-	printf("PANIC DETECTED!!!!\n");
 	if(hypercall_enabled){
 #ifdef PANIC_DEBUG
 		if(hypercall_arg){
@@ -518,36 +518,44 @@ void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 			//assert(0);
 		}
 #endif
-		if(fast_reload_snapshot_exists(get_fast_reload_snapshot()) && GET_GLOBAL_STATE()->in_fuzzing_mode){
+		if (syx_is_symbolic()) {
+			SYX_PRINTF("Crashing input found!\n");
+			qemu_mutex_lock_iothread();
+            syx_sym_run_end(cpu);
+			qemu_mutex_unlock_iothread();
+		} else {
+			if(fast_reload_snapshot_exists(get_fast_reload_snapshot()) && GET_GLOBAL_STATE()->in_fuzzing_mode){
 
-			if(hypercall_arg & 0x8000000000000000ULL){
+				if(hypercall_arg & 0x8000000000000000ULL){
 
-				reason[0] = '\x00';
+					reason[0] = '\x00';
 
-				uint64_t address = hypercall_arg & 0x7FFFFFFFFFFFULL;
-				uint64_t signal = (hypercall_arg & 0x7800000000000ULL) >> 47;
+					uint64_t address = hypercall_arg & 0x7FFFFFFFFFFFULL;
+					uint64_t signal = (hypercall_arg & 0x7800000000000ULL) >> 47;
 
-				snprintf(reason, 1024, "PANIC IN USER MODE (SIG: %d\tat 0x%lx)\n", (uint8_t)signal, address);
-				set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, reason, strlen(reason));
-			}
-			else{
-				switch(hypercall_arg){
-					case 0:
-						set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, (char*)"PANIC IN KERNEL MODE!\n", strlen("PANIC IN KERNEL MODE!\n"));
-						break;
-					case 1:
-						set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, (char*)"PANIC IN USER MODE!\n", strlen("PANIC IN USER MODE!\n"));
-						break;
-					default:
-						set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, (char*)"???\n", strlen("???\n"));
-						break;
+					snprintf(reason, 1024, "PANIC IN USER MODE (SIG: %d\tat 0x%lx)\n", (uint8_t)signal, address);
+					set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, reason, strlen(reason));
 				}
+				else{
+					switch(hypercall_arg){
+						case 0:
+							set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, (char*)"PANIC IN KERNEL MODE!\n", strlen("PANIC IN KERNEL MODE!\n"));
+							break;
+						case 1:
+							set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, (char*)"PANIC IN USER MODE!\n", strlen("PANIC IN USER MODE!\n"));
+							break;
+						default:
+							set_crash_reason_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, (char*)"???\n", strlen("???\n"));
+							break;
+					}
 
+				}
+				synchronization_lock_crash_found();
+			} else{
+				nyx_abort((char*)"Agent has crashed before initializing the fuzzing loop...");
 			}
-			synchronization_lock_crash_found();
-		} else{
-			nyx_abort((char*)"Agent has crashed before initializing the fuzzing loop...");
 		}
+
 	}
 }
 
@@ -653,12 +661,14 @@ static void handle_hypercall_kafl_lock(CPUState *cpu, uint64_t hypercall_arg){
 }
 
 static void handle_hypercall_kafl_printf(CPUState *cpu, uint64_t hypercall_arg){
-	read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
-#ifdef DEBUG_HPRINTF
-	fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
-#endif
-	set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
-	synchronization_lock();
+	if (syx_is_symbolic()) {
+		read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
+	#ifdef DEBUG_HPRINTF
+		fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
+	#endif
+		set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
+		synchronization_lock();
+	}
 }
 
 static void handle_hypercall_kafl_user_range_advise(CPUState *cpu, uint64_t hypercall_arg){

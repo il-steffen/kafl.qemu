@@ -411,7 +411,6 @@ static bool verify_sharedir_state(nyx_interface_state *s, Error **errp){
 
 static void nyx_realize(DeviceState *dev, Error **errp){
 	nyx_interface_state *s = NYX_MEM(dev);
-	bool syx_sym_tcg_enabled = s->syx_sym_tcg;
 
 	if(s->bitmap_size <= 0){
 		s->bitmap_size = DEFAULT_NYX_BITMAP_SIZE;
@@ -428,7 +427,7 @@ static void nyx_realize(DeviceState *dev, Error **errp){
 	}
 
 	GET_GLOBAL_STATE()->worker_id = s->worker_id;
-	GET_GLOBAL_STATE()->syx_sym_tcg_enabled = syx_sym_tcg_enabled;
+	GET_GLOBAL_STATE()->syx_sym_tcg_enabled = s->syx_sym_tcg;
 	
 	if (!s->workdir || !verify_workdir_state(s, errp)){
 		fprintf(stderr, "[QEMU-Nyx] Error:  work dir...\n");

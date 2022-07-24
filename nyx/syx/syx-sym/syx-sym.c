@@ -24,34 +24,42 @@ typedef struct syx_sym_state_s {
      * Output Configuration
      */
     char* syx_sym_output_f;
-    int syx_sym_output_fd;
 
-    void* host_input_addr;
-    size_t input_len;
+    // Symbolic Execution Input Informations
+    void* host_symbolized_addr_start;
+    size_t fuzzer_input_offset;
+    size_t symbolized_input_len;
 } syx_sym_state_t;
 
 syx_sym_state_t syx_sym_state = {0};
 
 void syx_sym_init(void* opaque) {
+    assert(syx_sym_state.syx_sym_output_f != NULL);
 
+    _sym_initialize(syx_sym_state.syx_sym_output_f);
 }
 
-void syx_sym_start(hwaddr phys_addr, vaddr virt_addr, size_t len) {
-    CPUState* cpu = qemu_get_cpu(0);
-    X86CPU *x86_cpu = X86_CPU(cpu);
-	CPUX86State *env = &x86_cpu->env;
-    int mmu_idx = cpu_mmu_index(env, false);
+void syx_sym_run_start(CPUState* cpu) {
+    SYX_PRINTF("Waiting for symbolic execution request...\n");
+    set_syx_sym_wait_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
+    synchronization_lock();
 
-    uint8_t* input_to_symbolize = g_new0(uint8_t, len);
+    syx_sym_state.symbolized_input_len = GET_GLOBAL_STATE()->syx_len;
+    syx_sym_state.fuzzer_input_offset = GET_GLOBAL_STATE()->syx_fuzzer_input_offset;
+    syx_sym_state.host_symbolized_addr_start = (void*) (((uint8_t*)(GET_GLOBAL_STATE()->shared_payload_buffer_host_location)) + syx_sym_state.fuzzer_input_offset);
 
-    read_virtual_memory(virt_addr, input_to_symbolize, len, cpu);
+    SYX_PRINTF("Symbolic Execution request received!\n");
+    SYX_PRINTF("\t-fuzzer input location: %p\n", GET_GLOBAL_STATE()->shared_payload_buffer_host_location);
+    SYX_PRINTF("\t-fuzzer input location: %p\n", syx_sym_state.host_symbolized_addr_start);
+    SYX_PRINTF("\t-fuzzer input offset: %u\n", GET_GLOBAL_STATE()->syx_fuzzer_input_offset);
+    SYX_PRINTF("\t-len: %u\n", GET_GLOBAL_STATE()->syx_len);
+    SYX_PRINTF("\t-first hex: %2X\n", *(uint8_t*)(syx_sym_state.host_symbolized_addr_start));
 
-    void *host_addr = tlb_vaddr_to_host(env, virt_addr, MMU_DATA_LOAD, mmu_idx);
+    SYX_PRINTF("\tSymbolic memory dump:\n");
 
-    syx_sym_state.host_input_addr = host_addr;
-    syx_sym_state.input_len = len;
+    qemu_hexdump((char*) syx_sym_state.host_symbolized_addr_start, stderr, "", syx_sym_state.symbolized_input_len);
 
-    _sym_initialize((char*) input_to_symbolize, (char*) host_addr, len, syx_sym_state.syx_sym_output_f);
+    _sym_run_start(syx_sym_state.host_symbolized_addr_start, syx_sym_state.symbolized_input_len);
 }
 
 uint64_t syx_sym_handler(CPUState* cpu, uint32_t cmd, target_ulong target_opaque) {
@@ -60,8 +68,7 @@ uint64_t syx_sym_handler(CPUState* cpu, uint32_t cmd, target_ulong target_opaque
     switch(cmd) {
         case SYX_CMD_SYM_END:
             printf("[SYX] End of run. Executing post-run functions...\n");
-            syx_sym_end_run(cpu);
-            syx_sym_start_new_run(cpu);
+            syx_sym_run_end(cpu);
             ret = 0;
             break;
         default:
@@ -76,31 +83,42 @@ void syx_sym_setup_workdir(char* workdir) {
     assert(asprintf(&syx_sym_state.syx_sym_output_f,"%s/sym_results", workdir) > 0);
 }
 
-void syx_sym_end_run(CPUState* cpu) {
-    // _sym_analyze_run();
-    syx_sym_flush_results();
-}
-
-void syx_sym_start_new_run(CPUState* cpu) {
-    char* new_input = _sym_start_new_run();
-    if (!new_input) {
-        SYX_PRINTF("End of symbolic execution. Restoring root snapshot and asking for a new task...\n");
-        syx_snapshot_root_restore(syx_get_snapshot(), cpu);
-        set_syx_sym_wait_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
-        synchronization_lock();
-        
-    }
-
-    syx_snapshot_increment_restore_last(syx_get_snapshot());
-    memcpy(syx_sym_state.host_input_addr, new_input, syx_sym_state.input_len);
-
-    SYX_PRINTF("New run ready!\n");
-}
-
-void syx_sym_flush_results(void) {
+static void flush_sym_results(void) {
     size_t nb_flush = _sym_flush_results();
     if (nb_flush > 0) {
         set_syx_sym_flush_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
         synchronization_lock();
     }
+}
+
+static void post_run_handler(void) {
+    flush_sym_results();
+}
+
+void syx_sym_run_end(CPUState* cpu) {
+    post_run_handler();
+
+    // Snapshot restoration must be done BEFORE a call to
+    // _sym_start_try_next_internal_run to avoid overwriting
+    // the next symbolic input.
+    syx_snapshot_root_restore(syx_get_snapshot(), cpu);
+
+    bool new_input = _sym_run_try_start_next_internal_run();
+
+    // No new internal run; start a new full run.
+    if (!new_input) {
+        SYX_PRINTF("End of symbolic execution for current symbolic request.\n"
+                    "Asking for a new task...\n");
+        syx_sym_run_start(cpu);
+    }
+
+    SYX_PRINTF("Starting next internal run...\n");
+}
+
+void syx_sym_run_generate_new_inputs(void) {
+    _sym_run_generate_new_inputs();
+}
+
+bool syx_sym_fuzz_is_symbolized_input(size_t fuzzer_input_offset, size_t len) {
+    return (fuzzer_input_offset == syx_sym_state.fuzzer_input_offset && len == syx_sym_state.symbolized_input_len);
 }

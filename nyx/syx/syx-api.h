@@ -10,7 +10,7 @@
 #endif
 
 // API version
-#define SYX_API_VERSION 3
+#define SYX_API_VERSION 5
 
 // Hypercall Parameters **To adapt depending on the target**
 #define SYX_HC_REGISTER_SIZE 64
@@ -74,10 +74,8 @@
  */
 #define SYX_CMD_EVENT_SYNC  0
 typedef struct syx_cmd_event_sync_s {
-    SYX_HC_TYPE virt_addr_to_sym_exec;
+    size_t fuzzer_input_offset;
     size_t len;
-
-    size_t fuzz_input_offset;
 } syx_cmd_event_sync_t;
 
 /**
@@ -89,10 +87,8 @@ typedef struct syx_cmd_event_sync_s {
  */
 #define SYX_CMD_EVENT_ASYNC  1
 typedef struct syx_cmd_event_async_s {
-    SYX_HC_TYPE virt_addr_to_hook;
+    size_t fuzzer_input_offset;
     size_t len;
-
-    size_t fuzz_input_offset;
 } syx_cmd_event_async_t;
 
 //

@@ -22,7 +22,7 @@
 #include "qemu-file-ram.h"
 #include "device-save.h"
 
-#define SYX_SNAPSHOT_LIST_INIT_SIZE      512
+#define SYX_SNAPSHOT_LIST_INIT_SIZE      4096
 #define SYX_SNAPSHOT_LIST_GROW_FACTOR    2
 
 syx_snapshot_state_t syx_snapshot_state = {0};
@@ -89,7 +89,6 @@ syx_snapshot_root_t syx_snapshot_root_create(CPUState* cpu) {
 
     uint64_t ram_block_idx = 0;
     RAMBLOCK_FOREACH(block) {
-        // SYX_PRINTF("Saving block %s\n", block->idstr);
         syx_snapshot_ramblock_t* snapshot_ram_block = &root.ram_blocks[ram_block_idx];
         strcpy(snapshot_ram_block->idstr, block->idstr);
         snapshot_ram_block->used_length = block->used_length;
@@ -125,13 +124,13 @@ syx_snapshot_tracker_t syx_snapshot_tracker_init(void) {
 void syx_snapshot_track(syx_snapshot_tracker_t* tracker, syx_snapshot_t* snapshot) {
     if (tracker->length == tracker->capacity) {
         tracker->capacity *= SYX_SNAPSHOT_LIST_GROW_FACTOR;
-        tracker->tracked_snapshots = g_realloc(tracker->tracked_snapshots, tracker->capacity);
+        tracker->tracked_snapshots = g_realloc(tracker->tracked_snapshots, tracker->capacity * sizeof(syx_snapshot_t*));
     }
 
     assert(tracker->length < tracker->capacity);
 
     tracker->tracked_snapshots[tracker->length] = snapshot;
-    ++tracker->length;
+    tracker->length++;
 }
 
 void syx_snapshot_stop_track(syx_snapshot_tracker_t* tracker, syx_snapshot_t* snapshot) {
@@ -221,20 +220,25 @@ static void restore_to_last_increment(syx_snapshot_t* snapshot, MemoryRegion* mr
 
 void syx_snapshot_increment_pop(syx_snapshot_t* snapshot) {
     MemoryRegion* system_mr = get_system_memory();
-    syx_snapshot_increment_t* increment = snapshot->last_incremental_snapshot;
+    syx_snapshot_increment_t* last_increment = snapshot->last_incremental_snapshot;
 
     restore_to_last_increment(snapshot, system_mr);
+    
+    device_restore_all(last_increment->dss);
 
     syx_snapshot_dirty_list_flush(&snapshot->dirty_list);
 
-    snapshot->last_incremental_snapshot = increment->parent;
-    syx_snapshot_increment_free(increment);
+    snapshot->last_incremental_snapshot = last_increment->parent;
+    syx_snapshot_increment_free(last_increment);
 }
 
 void syx_snapshot_increment_restore_last(syx_snapshot_t* snapshot) {
     MemoryRegion* system_mr = get_system_memory();
+    syx_snapshot_increment_t* last_increment = snapshot->last_incremental_snapshot;
 
     restore_to_last_increment(snapshot, system_mr);
+    
+    device_restore_all(last_increment->dss);
 
     syx_snapshot_dirty_list_flush(&snapshot->dirty_list);
 }
@@ -266,17 +270,21 @@ void syx_snapshot_dirty_list_free(syx_snapshot_dirty_list_t* dirty_list) {
     g_free(dirty_list->dirty_addr);
 }
 
-static inline syx_snapshot_dirty_page_t syx_snapshot_save_page_from_addr(MemoryRegion* mr, hwaddr addr) {
-    syx_snapshot_dirty_page_t dirty_page = {
-        .addr = addr,
-        .data = g_new(uint8_t, syx_snapshot_state.page_size)
-    };
+static inline syx_snapshot_dirty_page_t* syx_snapshot_save_page_from_addr(MemoryRegion* mr, hwaddr addr) {
+    syx_snapshot_dirty_page_t* dirty_page = g_new(syx_snapshot_dirty_page_t, 1);
+    
+    dirty_page->addr = addr;
+    dirty_page->data = g_new(uint8_t, syx_snapshot_state.page_size);
+    
     MemoryRegionSection mr_section = memory_region_find(mr, addr, syx_snapshot_state.page_size);
 
     assert(mr_section.size != 0 && mr_section.mr != NULL);
-    assert(mr_section.mr->ram);
+
+    if (!mr_section.mr->ram) {
+        return NULL;
+    }
     
-    memcpy(dirty_page.data, mr_section.mr->ram_block->host + mr_section.offset_within_region, syx_snapshot_state.page_size);
+    memcpy(dirty_page->data, mr_section.mr->ram_block->host + mr_section.offset_within_region, syx_snapshot_state.page_size);
     return dirty_page;
 }
 
@@ -287,9 +295,18 @@ syx_snapshot_dirty_page_list_t syx_snapshot_dirty_list_to_dirty_page_list(syx_sn
     };
     MemoryRegion* system_mr = get_system_memory();
 
+    uint64_t real_len = 0;
     for (uint64_t i = 0; i < dirty_page_list.length; ++i) {
-        dirty_page_list.dirty_pages[i] = syx_snapshot_save_page_from_addr(system_mr, dirty_list->dirty_addr[i]);
+        syx_snapshot_dirty_page_t* page = syx_snapshot_save_page_from_addr(system_mr, dirty_list->dirty_addr[i]);
+        if (page == NULL) {
+            continue;
+        }
+        dirty_page_list.dirty_pages[real_len] = *page;
+        real_len++;
+        g_free(page);
     }
+
+    dirty_page_list.length = real_len;
 
     return dirty_page_list;
 }
@@ -301,15 +318,15 @@ static inline void syx_snapshot_dirty_list_add_internal(hwaddr paddr) {
         syx_snapshot_dirty_list_t* dirty_list = &syx_snapshot_state.tracked_snapshots.tracked_snapshots[i]->dirty_list;
 
         // Avoid adding already marked addresses
-        for (int i = 0; i < dirty_list->length; ++i) {
-            if (dirty_list->dirty_addr[i] == paddr) {
-                return;
+        for (uint64_t j = 0; j < dirty_list->length; ++j) {
+            if (dirty_list->dirty_addr[j] == paddr) {
+                continue;
             }
         }
 
         if (dirty_list->length == dirty_list->capacity) {
             dirty_list->capacity *= SYX_SNAPSHOT_LIST_GROW_FACTOR;
-            dirty_list->dirty_addr = g_realloc(dirty_list->dirty_addr, dirty_list->capacity);
+            dirty_list->dirty_addr = g_realloc(dirty_list->dirty_addr, dirty_list->capacity * sizeof(hwaddr));
         }
 
         dirty_list->dirty_addr[dirty_list->length] = paddr;
@@ -345,7 +362,6 @@ __attribute__((target("no-3dnow,no-sse,no-mmx"),no_caller_saved_registers)) void
 }
 
 void syx_snapshot_dirty_list_add(hwaddr paddr) {
-    // early check to know whether we should log the page access or not
     if (!syx_snapshot_is_enabled()) {
         return;
     }
@@ -359,7 +375,6 @@ inline void syx_snapshot_dirty_list_flush(syx_snapshot_dirty_list_t* dirty_list)
 
 static void syx_snapshot_restore_root_from_dirty_list(syx_snapshot_root_t* root, MemoryRegion* mr, syx_snapshot_dirty_list_t* dirty_list) {
     for (size_t i = 0; i < dirty_list->length; ++i) {
-        // SYX_PRINTF(" %lu) Restore page at address %p...\n", i, (void*) snapshot.dirty_list[i]);
         restore_page_from_root(root, mr, dirty_list->dirty_addr[i]);
     }
 }
@@ -369,6 +384,4 @@ void syx_snapshot_root_restore(syx_snapshot_t* snapshot, CPUState* cpu) {
     syx_snapshot_restore_root_from_dirty_list(&snapshot->root_snapshot, system_mr, &snapshot->dirty_list);
     device_restore_all(snapshot->root_snapshot.dss);
     syx_snapshot_dirty_list_flush(&snapshot->dirty_list);
-
-    SYX_PRINTF("Restoration done.\n");
 }

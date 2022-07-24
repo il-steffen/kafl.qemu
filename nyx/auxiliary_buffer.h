@@ -111,8 +111,7 @@ typedef struct auxilary_buffer_config_s{
 
   /* SYX configuration */
   uint8_t syx_symbolic_run;
-  uint64_t syx_phys_addr;
-  uint64_t syx_virt_addr;
+  uint32_t syx_fuzzer_input_offset;
   uint32_t syx_len;
 
   /* more to come */
@@ -142,10 +141,8 @@ typedef struct auxilary_buffer_result_s{
   uint32_t runtime_sec;
   uint32_t padding_4;
 
-  uint64_t syx_phys_addr;
-  uint64_t syx_virt_addr;
+  uint64_t syx_fuzzer_input_offset;
   uint64_t syx_len;
-  uint64_t syx_fuzz_offset;
 
   /* more to come */
 } __attribute__((packed)) auxilary_buffer_result_t;
@@ -186,7 +183,7 @@ void check_auxiliary_config_buffer(auxilary_buffer_t* auxilary_buffer, auxilary_
 void set_crash_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_asan_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
-void set_syx_sym_new_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, vaddr start_virt_addr, uint64_t len, size_t fuzz_offset);
+void set_syx_sym_new_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, size_t fuzzer_input_offset, uint64_t len);
 void set_syx_sym_flush_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_syx_sym_wait_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);
 void set_reload_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer);

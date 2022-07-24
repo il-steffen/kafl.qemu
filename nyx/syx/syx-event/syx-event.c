@@ -66,9 +66,9 @@ static bool hc_addr_is_present(syx_event_hc_addr_t* hc_addr, hwaddr addr) {
     return false;
 }
 
-static void ask_symbolic_exec(hwaddr phys_addr, vaddr virt_addr, size_t len, size_t fuzz_offset) {
+static void ask_symbolic_exec(size_t fuzzer_input_offset, size_t len) {
     // Set symbolic execution parameters in the result buffer
-    set_syx_sym_new_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, phys_addr, virt_addr, len, fuzz_offset);
+    set_syx_sym_new_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, fuzzer_input_offset, len);
 
     // Go back to python
     synchronization_lock();
@@ -116,60 +116,44 @@ void syx_event_add_memory_access(hwaddr phys_start_addr, vaddr virt_start_addr, 
 }
 
 static void syx_event_handle_async(CPUState* cpu, target_ulong target_opaque) {
-    X86CPU* xcpu = X86_CPU(cpu);
-    CPUX86State* env = &(xcpu->env);
-
     syx_cmd_event_async_t* params = SYX_HC_GET_PARAM(syx_cmd_event_async_t, cpu, target_opaque);
-    vaddr vaddr_to_hook = params->virt_addr_to_hook;
     size_t mem_len = params->len;
-    size_t fuzz_offset = params->fuzz_input_offset;
+    size_t fuzzer_input_offset = params->fuzzer_input_offset;
 
-	hwaddr phys_addr_to_hook = get_paging_phys_addr(cpu, env->cr[3], vaddr_to_hook);
-
-    if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
-		syx_event_add_memory_access(phys_addr_to_hook, vaddr_to_hook, mem_len, fuzz_offset);
+    if (!syx_is_symbolic()) {
+        abort();
+        // Fix this before removing abort.
+		// syx_event_add_memory_access(fuzzer_input_offset);
     } else {
         // Not using physical address for consistency reason...
         // The check should be added once cross-snapshoting works.
-        if (vaddr_to_hook == GET_GLOBAL_STATE()->syx_virt_addr
-            && mem_len == GET_GLOBAL_STATE()->syx_len) {
-                syx_sym_start(phys_addr_to_hook, vaddr_to_hook, mem_len);
-                syx_snapshot_increment_push(syx_get_snapshot(), cpu);
-            } else {
-                SYX_PRINTF("Not initializing symbolic execution\n");
-                SYX_PRINTF("\t- Phys symbolized: 0x%lx | Phys hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_phys_addr, phys_addr_to_hook);
-                SYX_PRINTF("\t- Virt symbolized: 0x%lx | Virt hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_virt_addr, vaddr_to_hook);
-                SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
-                abort();
-            }
+        if (syx_sym_fuzz_is_symbolized_input(fuzzer_input_offset, mem_len)) {
+                syx_sym_run_generate_new_inputs();
+        } else {
+            SYX_PRINTF("Not initializing symbolic execution\n");
+            SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
+            abort();
+        }
     }
 }
 
 static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {
-    X86CPU* xcpu = X86_CPU(cpu);
-    CPUX86State* env = &(xcpu->env);
-
     syx_cmd_event_sync_t* params = SYX_HC_GET_PARAM(syx_cmd_event_sync_t, cpu, target_opaque);
-    vaddr vaddr_to_sym_exec = params->virt_addr_to_sym_exec;
+
+    size_t fuzzer_input_offset = params->fuzzer_input_offset;
     size_t mem_len = params->len;
-    size_t fuzz_offset = params->fuzz_input_offset;
 
-	hwaddr phys_addr_to_sym_exec = get_paging_phys_addr(cpu, env->cr[3], vaddr_to_sym_exec);
-
-    if (!GET_GLOBAL_STATE()->syx_sym_tcg_enabled) {
-        ask_symbolic_exec(phys_addr_to_sym_exec, vaddr_to_sym_exec, mem_len, fuzz_offset);
+    if (!syx_is_symbolic()) {
+        ask_symbolic_exec(fuzzer_input_offset, mem_len);
     } else {
-        if (vaddr_to_sym_exec == GET_GLOBAL_STATE()->syx_virt_addr
-            && mem_len == GET_GLOBAL_STATE()->syx_len) {
-                syx_sym_start(phys_addr_to_sym_exec, vaddr_to_sym_exec, mem_len);
-                syx_snapshot_increment_push(syx_get_snapshot(), cpu);
-            } else {
-                SYX_PRINTF("Not initializing symbolic execution\n");
-                SYX_PRINTF("\t- Phys symbolized: 0x%lx | Phys hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_phys_addr, phys_addr_to_sym_exec);
-                SYX_PRINTF("\t- Virt symbolized: 0x%lx | Virt hypercall: 0x%lx\n", GET_GLOBAL_STATE()->syx_virt_addr, vaddr_to_sym_exec);
-                SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
-                abort();
-            }
+        if (syx_sym_fuzz_is_symbolized_input(fuzzer_input_offset, mem_len)) {
+            syx_sym_run_generate_new_inputs();
+        } else {
+            // TODO: just ignore the hypercall since it is not the target symbolic exec...
+            SYX_PRINTF("Not initializing symbolic execution\n");
+            SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
+            abort();
+        }
     }
 }
 
@@ -204,7 +188,7 @@ uint64_t syx_event_read_memory(void* opaque, hwaddr addr, unsigned size) {
     printf("\t- Fuzzer offset: 0x%lx\n\n", addr_range->fuzz_offset);
     syx_event_memory_access_disable();
 
-    ask_symbolic_exec(addr_range->phys_addr, addr_range->virt_addr, addr_range->length, addr_range->fuzz_offset);
+    ask_symbolic_exec(addr_range->fuzz_offset, addr_range->length);
 
     // TODO: change that...
     return (uint64_t) 'A';

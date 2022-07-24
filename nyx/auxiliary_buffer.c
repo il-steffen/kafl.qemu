@@ -98,9 +98,7 @@ void check_auxiliary_config_buffer(auxilary_buffer_t* auxilary_buffer, auxilary_
     /* SYX mode */
     VOLATILE_READ_8(aux_byte, auxilary_buffer->configuration.syx_symbolic_run);
     if (aux_byte) {
-      GET_GLOBAL_STATE()->syx_sym_tcg_enabled = true;
-      VOLATILE_READ_64(GET_GLOBAL_STATE()->syx_phys_addr, auxilary_buffer->configuration.syx_phys_addr);
-      VOLATILE_READ_64(GET_GLOBAL_STATE()->syx_virt_addr, auxilary_buffer->configuration.syx_virt_addr);
+      VOLATILE_READ_64(GET_GLOBAL_STATE()->syx_fuzzer_input_offset, auxilary_buffer->configuration.syx_fuzzer_input_offset);
       VOLATILE_READ_32(GET_GLOBAL_STATE()->syx_len, auxilary_buffer->configuration.syx_len);
     }
 
@@ -186,13 +184,11 @@ void set_timeout_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer){
   VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_timeout);
 }
 
-void set_syx_sym_new_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, hwaddr start_phys_addr, uint64_t start_virt_addr, uint64_t len, size_t fuzz_offset) {
+void set_syx_sym_new_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer, size_t fuzzer_input_offset, uint64_t len) {
   VOLATILE_WRITE_8(auxilary_buffer->result.exec_result_code, rc_syx_sym_new);
 
-  VOLATILE_WRITE_64(auxilary_buffer->result.syx_phys_addr, start_phys_addr);
-  VOLATILE_WRITE_64(auxilary_buffer->result.syx_virt_addr, start_virt_addr);
   VOLATILE_WRITE_64(auxilary_buffer->result.syx_len, len);
-  VOLATILE_WRITE_64(auxilary_buffer->result.syx_fuzz_offset, fuzz_offset);
+  VOLATILE_WRITE_64(auxilary_buffer->result.syx_fuzzer_input_offset, fuzzer_input_offset);
 }
 
 void set_syx_sym_flush_auxiliary_result_buffer(auxilary_buffer_t* auxilary_buffer) {

@@ -4565,8 +4565,8 @@ int main(int argc, char **argv, char **envp)
     register_global_state();
 
 #ifdef QEMU_NYX
-    fast_reload_init(GET_GLOBAL_STATE()->fast_reload_snapshot);
     syx_init(GET_GLOBAL_STATE()->syx_sym_tcg_enabled);
+    fast_reload_init(GET_GLOBAL_STATE()->fast_reload_snapshot);
     
     if (fast_vm_reload){
 

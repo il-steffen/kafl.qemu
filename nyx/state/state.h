@@ -90,6 +90,7 @@ typedef struct qemu_nyx_state_s{
 
     int shared_payload_buffer_fd;
     uint32_t shared_payload_buffer_size;
+    void* shared_payload_buffer_host_location;
 
     int shared_ijon_bitmap_fd;
     uint32_t shared_ijon_bitmap_size;
@@ -149,8 +150,7 @@ typedef struct qemu_nyx_state_s{
 
     /* SYX */
     uint8_t syx_sym_tcg_enabled;
-    uint64_t syx_phys_addr;
-    uint64_t syx_virt_addr;
+    uint32_t syx_fuzzer_input_offset;
     uint32_t syx_len;
 
     auxilary_buffer_t* auxilary_buffer;

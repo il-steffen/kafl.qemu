@@ -43,6 +43,10 @@ static bool accel_is_compatible(syx_namespace_t* ns, syx_accel accel) {
     return (ns->supported_accel & SYX_ACCEL_DECODE(accel)) != 0;
 }
 
+static bool should_init(syx_namespace_t* ns) {
+    return (arch_is_compatible(ns, syx_state.arch) && accel_is_compatible(ns, syx_state.accel));
+}
+
 void syx_init(bool is_symbolic) {
     bool must_unlock_iothread = false;
     if (!qemu_mutex_iothread_locked()) {
@@ -65,7 +69,7 @@ void syx_init(bool is_symbolic) {
     for (uint64_t i = 0; i < SYX_NS_MAX; i++) {
         syx_namespace_t* current_ns = &syx_namespaces[i];
 
-        if (current_ns->is_used && !current_ns->init_has_opaque_param) {
+        if (should_init(current_ns) && current_ns->is_used && !current_ns->init_has_opaque_param) {
             current_ns->init(NULL);
         }
     }
@@ -85,9 +89,13 @@ uint64_t syx_handle(CPUState* cpu, uint8_t ns_id, uint32_t cmd, target_ulong tar
     assert(syx_state.is_initialized);
 
     assert(arch_is_compatible(ns, syx_state.arch));
-    assert(accel_is_compatible(ns, syx_state.accel));
+    // assert(accel_is_compatible(ns, syx_state.accel));
 
-    return ns->handler(cpu, cmd, target_opaque);
+    if (accel_is_compatible(ns, syx_state.accel)) {
+        return ns->handler(cpu, cmd, target_opaque);
+    } else {
+        return 0;
+    }
 }
 
 void syx_set_arch(syx_arch arch) {
