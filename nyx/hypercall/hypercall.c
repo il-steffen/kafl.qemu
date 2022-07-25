@@ -661,14 +661,12 @@ static void handle_hypercall_kafl_lock(CPUState *cpu, uint64_t hypercall_arg){
 }
 
 static void handle_hypercall_kafl_printf(CPUState *cpu, uint64_t hypercall_arg){
-	if (syx_is_symbolic()) {
-		read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
-	#ifdef DEBUG_HPRINTF
-		fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
-	#endif
-		set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
-		synchronization_lock();
-	}
+	read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
+#ifdef DEBUG_HPRINTF
+	fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
+#endif
+	set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
+	synchronization_lock();
 }
 
 static void handle_hypercall_kafl_user_range_advise(CPUState *cpu, uint64_t hypercall_arg){

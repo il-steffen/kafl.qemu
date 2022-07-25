@@ -4511,7 +4511,7 @@ static void x86_cpuid_set_model_id(Object *obj, const char *model_id,
     }
 #ifdef QEMU_NYX
     if (!syx_is_symbolic()) {
-        if(strncmp(model_id, NYX_PT_CPU_MODEL, strlen(NYX_PT_CPU_MODEL)) == 0 && GET_GLOBAL_STATE()->nyx_fdl == false){
+        if(strncmp(model_id, NYX_PT_CPU_MODEL, strlen(NYX_PT_CPU_MODEL)) == 0 && GET_GLOBAL_STATE()->nyx_fdl == false) {
             fprintf(stderr, "[QEMU-Nyx] Warning: Attempt to use unsupported CPU model (PT) without KVM-PT (Hint: use '-cpu kAFL64-Hypervisor-v2' instead)\n");
             model_id = NYX_NO_PT_CPU_MODEL;
         }

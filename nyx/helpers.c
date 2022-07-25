@@ -18,7 +18,6 @@
 bool tcg_mode = false;
 
 void enable_tcg_mode(void){
-	printf("[QEMU] enabling TCG mode...\n");
 	tcg_mode = true;
 }
 
