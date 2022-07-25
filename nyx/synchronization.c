@@ -209,9 +209,9 @@ void synchronization_lock_hprintf(void){
 	pthread_mutex_unlock(&synchronization_lock_mutex);
 }
 void synchronization_lock(void){
+	bool must_relock_iothread = false;
 
 	timeout_detector_t timer = GET_GLOBAL_STATE()->timeout_detector;
-	bool must_relock_iothread = false;
 	pthread_mutex_lock(&synchronization_lock_mutex);
 	run_counter++;
 
