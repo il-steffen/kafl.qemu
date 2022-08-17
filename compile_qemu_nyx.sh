@@ -53,6 +53,11 @@ compile_libraries()
 configure_qemu()
 {
   QEMU_CONFIGURE="./configure --target-list=x86_64-softmmu --disable-gtk --disable-docs --enable-gtk --disable-werror --disable-capstone --disable-libssh --disable-tools"
+  QEMU_SYX_CONFIGURE="--extra-cflags=-mno-80387 --enable-syx --symcc-source=$SYMCC_ROOT --symcc-build=$SYMCC_ROOT/build"
+
+  if [ ! -z $SYMCC_ROOT ]; then
+    QEMU_CONFIGURE="$QEMU_CONFIGURE $QEMU_SYX_CONFIGURE"
+  fi
 
   case $1 in
     "debug_static"|"static"|"lto")
@@ -63,12 +68,13 @@ configure_qemu()
       ;;
   esac
 
+  echo "[!] Configuring QEMU..."
   case $1 in
     "dynamic")
-      $QEMU_CONFIGURE --enable-nyx --enable-syx
+      $QEMU_CONFIGURE --enable-nyx
       ;;
     "debug")
-      $QEMU_CONFIGURE --enable-nyx --enable-sanitizers --enable-debug --enable-debug-syx
+      $QEMU_CONFIGURE --enable-nyx --enable-sanitizers --enable-debug
       ;;
     "debug_static")
       $QEMU_CONFIGURE --enable-nyx --enable-sanitizers --enable-debug --enable-nyx-static
@@ -88,6 +94,7 @@ configure_qemu()
 compile_qemu()
 {
   test -f GNUmakefile && rm GNUmakefile 2> /dev/null
+  echo "[!] Compiling QEMU..."
   make -j $(nproc)
 }
 
@@ -102,7 +109,7 @@ case $1 in
     *)
       error
       ;;
-  esac
+esac
 
 if [ -z "$LIBXDC_ROOT" -o -z "$CAPSTONE_ROOT" ]; then
 	git submodule init
