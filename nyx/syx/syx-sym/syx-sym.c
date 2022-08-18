@@ -40,7 +40,7 @@ void syx_sym_init(void* opaque) {
 }
 
 void syx_sym_run_start(CPUState* cpu) {
-    SYX_PRINTF("Waiting for symbolic execution request...\n");
+    //SYX_PRINTF("Waiting for symbolic execution request...\n");
     set_syx_sym_wait_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
     synchronization_lock();
 
@@ -48,16 +48,16 @@ void syx_sym_run_start(CPUState* cpu) {
     syx_sym_state.fuzzer_input_offset = GET_GLOBAL_STATE()->syx_fuzzer_input_offset;
     syx_sym_state.host_symbolized_addr_start = (void*) (((uint8_t*)(GET_GLOBAL_STATE()->shared_payload_buffer_host_location)) + syx_sym_state.fuzzer_input_offset);
 
-    SYX_PRINTF("Symbolic Execution request received!\n");
-    SYX_PRINTF("\t-fuzzer input location: %p\n", GET_GLOBAL_STATE()->shared_payload_buffer_host_location);
-    SYX_PRINTF("\t-fuzzer input location: %p\n", syx_sym_state.host_symbolized_addr_start);
-    SYX_PRINTF("\t-fuzzer input offset: %u\n", GET_GLOBAL_STATE()->syx_fuzzer_input_offset);
-    SYX_PRINTF("\t-len: %u\n", GET_GLOBAL_STATE()->syx_len);
-    SYX_PRINTF("\t-first hex: %2X\n", *(uint8_t*)(syx_sym_state.host_symbolized_addr_start));
+    //SYX_PRINTF("Symbolic Execution request received!\n");
+    //SYX_PRINTF("\t-fuzzer input location: %p\n", GET_GLOBAL_STATE()->shared_payload_buffer_host_location);
+    //SYX_PRINTF("\t-fuzzer input location: %p\n", syx_sym_state.host_symbolized_addr_start);
+    //SYX_PRINTF("\t-fuzzer input offset: %u\n", GET_GLOBAL_STATE()->syx_fuzzer_input_offset);
+    //SYX_PRINTF("\t-len: %u\n", GET_GLOBAL_STATE()->syx_len);
+    //SYX_PRINTF("\t-first hex: %2X\n", *(uint8_t*)(syx_sym_state.host_symbolized_addr_start));
 
-    SYX_PRINTF("\tSymbolic memory dump:\n");
+    //SYX_PRINTF("\tSymbolic memory dump:\n");
 
-    qemu_hexdump((char*) syx_sym_state.host_symbolized_addr_start, stderr, "", syx_sym_state.symbolized_input_len);
+    //qemu_hexdump((char*) syx_sym_state.host_symbolized_addr_start, stderr, "", syx_sym_state.symbolized_input_len);
 
     _sym_run_start(syx_sym_state.host_symbolized_addr_start, syx_sym_state.symbolized_input_len);
 }
@@ -67,7 +67,7 @@ uint64_t syx_sym_handler(CPUState* cpu, uint32_t cmd, target_ulong target_opaque
 
     switch(cmd) {
         case SYX_CMD_SYM_END:
-            printf("[SYX] End of run. Executing post-run functions...\n");
+            // printf("[SYX] End of run. Executing post-run functions...\n");
             syx_sym_run_end(cpu);
             ret = 0;
             break;
@@ -112,7 +112,7 @@ void syx_sym_run_end(CPUState* cpu) {
         syx_sym_run_start(cpu);
     }
 
-    SYX_PRINTF("Starting next internal run...\n");
+    // SYX_PRINTF("Starting next internal run...\n");
 }
 
 void syx_sym_run_generate_new_inputs(void) {
