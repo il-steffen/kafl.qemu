@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stdint.h"
+#include "stdbool.h"
 
 #ifndef glue
 #define xglue(x, y) x ## y
@@ -10,7 +11,7 @@
 #endif
 
 // API version
-#define SYX_API_VERSION 5
+#define SYX_API_VERSION 6
 
 // Hypercall Parameters **To adapt depending on the target**
 #define SYX_HC_REGISTER_SIZE 64
@@ -74,8 +75,10 @@
  */
 #define SYX_CMD_EVENT_SYNC  0
 typedef struct syx_cmd_event_sync_s {
-    size_t fuzzer_input_offset;
-    size_t len;
+    size_t fuzzer_input_offset; // Offset in the fuzzer buffer to symbolize
+    size_t len; // Length of the symbolized input
+
+    bool unique; // Will make the symbolic request only once
 } syx_cmd_event_sync_t;
 
 /**

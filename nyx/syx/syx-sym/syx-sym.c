@@ -107,8 +107,8 @@ void syx_sym_run_end(CPUState* cpu) {
 
     // No new internal run; start a new full run.
     if (!new_input) {
-        SYX_PRINTF("End of symbolic execution for current symbolic request.\n"
-                    "Asking for a new task...\n");
+        // SYX_PRINTF("End of symbolic execution for current symbolic request.\n"
+        //            "Asking for a new task...\n");
         syx_sym_run_start(cpu);
     }
 

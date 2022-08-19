@@ -137,6 +137,16 @@ static void syx_event_handle_async(CPUState* cpu, target_ulong target_opaque) {
     }
 }
 
+static void patch_hypercall(CPUState* cpu) {
+    nyx_get_registers(cpu);
+
+    X86CPU* xcpu = X86_CPU(cpu);
+    CPUX86State* env = &(xcpu->env);
+    uint8_t nops[3] = {'\x90', '\x90', '\x90'};
+
+    write_virtual_memory(env->eip - 3, nops, 3, cpu);
+}
+
 static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {
     syx_cmd_event_sync_t* params = SYX_HC_GET_PARAM(syx_cmd_event_sync_t, cpu, target_opaque);
 
@@ -145,6 +155,10 @@ static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {
 
     if (!syx_is_symbolic()) {
         ask_symbolic_exec(fuzzer_input_offset, mem_len);
+
+        if (params->unique) {
+            patch_hypercall(cpu);
+        }
     } else {
         if (syx_sym_fuzz_is_symbolized_input(fuzzer_input_offset, mem_len)) {
             syx_sym_run_generate_new_inputs();
