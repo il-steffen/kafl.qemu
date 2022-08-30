@@ -278,7 +278,6 @@ inline static void wait_for_snapshot(const char* folder){
 
     while( access(lock_file, F_OK ) == -1 ) {
         sleep(1);
-
     }
     free(lock_file);
 }
@@ -442,6 +441,10 @@ void fast_reload_restore(fast_reload_t* self){
 
 bool read_snapshot_memory(fast_reload_t* self, uint64_t address, void* ptr, size_t size){
     return shadow_memory_read_physical_memory(self->shadow_memory_state, address, ptr, size);
+}
+
+bool write_snapshot_memory(fast_reload_t* self, uint64_t address, void* ptr, size_t size){
+    return shadow_memory_write_physical_memory(self->shadow_memory_state, address, ptr, size);
 }
 
 /* fix this */

@@ -142,9 +142,14 @@ static void patch_hypercall(CPUState* cpu) {
 
     X86CPU* xcpu = X86_CPU(cpu);
     CPUX86State* env = &(xcpu->env);
+    vaddr virt_addr = env->eip - 3;
+    hwaddr phys_addr = get_paging_phys_addr(cpu, env->cr[3], virt_addr);
     uint8_t nops[3] = {'\x90', '\x90', '\x90'};
 
-    write_virtual_memory(env->eip - 3, nops, 3, cpu);
+    write_virtual_memory(virt_addr, nops, 3, cpu);
+
+    assert(get_fast_reload_snapshot() != NULL);
+    write_snapshot_memory(get_fast_reload_snapshot(), phys_addr, nops, 3);
 }
 
 static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {

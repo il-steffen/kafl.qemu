@@ -90,3 +90,4 @@ bool shadow_memory_is_root_page_tracked(shadow_memory_t* self, uint64_t address,
 void shadow_memory_serialize(shadow_memory_t* self, const char* snapshot_folder);
 
 bool shadow_memory_read_physical_memory(shadow_memory_t* self, uint64_t address, void* ptr, size_t size);
+bool shadow_memory_write_physical_memory(shadow_memory_t* self, uint64_t address, void* ptr, size_t size);

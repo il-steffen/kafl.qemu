@@ -197,6 +197,7 @@ static void acquire_print_once(CPUState *cpu){
 
 void handle_hypercall_kafl_acquire(CPUState *cpu, uint64_t hypercall_arg){
 	//return;
+
 	if(hypercall_enabled){
 		if (!init_state){
 			acquire_print_once(cpu);
@@ -373,6 +374,12 @@ void handle_hypercall_kafl_release(CPUState *cpu, uint64_t hypercall_arg){
 				GET_GLOBAL_STATE()->starved = 1;
 			} else {
 				GET_GLOBAL_STATE()->starved = 0;
+			}
+
+			if (syx_is_symbolic()) {
+				SYX_ERROR_REPORT("Symbolic Scope ending Scope not defined. Please define the symbolic execution scope correctly.");
+				SYX_ERROR_REPORT("Hint: use SYM_END hypercall to define the ending scope in the target.");
+				abort();
 			}
 
 			if (!is_enabled_tcg_mode()) {

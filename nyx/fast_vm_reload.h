@@ -114,6 +114,7 @@ void* fast_reload_get_physmem_shadow_ptr(fast_reload_t* self, uint64_t physaddr)
 bool fast_reload_snapshot_exists(fast_reload_t* self);
 
 bool read_snapshot_memory(fast_reload_t* self, uint64_t address, void* ptr, size_t size);
+bool write_snapshot_memory(fast_reload_t* self, uint64_t address, void* ptr, size_t size);
 
 void fast_reload_destroy(fast_reload_t* self);
 
