@@ -863,7 +863,6 @@ bool read_virtual_memory(uint64_t address, uint8_t* data, uint32_t size, CPUStat
         MemTxResult txt = address_space_rw(cpu_get_address_space(cpu, asidx), phys_addr, MEMTXATTRS_UNSPECIFIED, tmp_buf, len_to_copy, 0);
         if(txt){
             QEMU_PT_PRINTF(MEM_PREFIX, "Warning, read failed:\t%lx (%lx)", address, phys_addr);
-            return false;
         }
         
         memcpy(data+amount_copied, tmp_buf, len_to_copy);
