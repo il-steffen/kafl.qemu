@@ -1,4 +1,5 @@
 #pragma once
+#ifdef QEMU_SYX
 
 #include "qemu/osdep.h"
 #include "exec/hwaddr.h"
@@ -6,6 +7,7 @@
 
 typedef uint64_t vaddr;
 typedef uint64_t target_ulong;
+
 
 // Run: starts from the beginning of the target to fulfill
 //      a given request
@@ -34,3 +36,4 @@ void syx_sym_run_end(CPUState* cpu);
 // Input generation is automatically diabled
 // At the end of a run (being internal or not)
 void syx_sym_run_generate_new_inputs(void);
+#endif

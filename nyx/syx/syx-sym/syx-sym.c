@@ -27,8 +27,8 @@ typedef struct syx_sym_state_s {
 
     // Symbolic Execution Input Informations
     void* host_symbolized_addr_start;
-    size_t fuzzer_input_offset;
-    size_t symbolized_input_len;
+    uint32_t fuzzer_input_offset;
+    uint32_t symbolized_input_len;
 } syx_sym_state_t;
 
 syx_sym_state_t syx_sym_state = {0};
@@ -48,12 +48,13 @@ void syx_sym_run_start(CPUState* cpu) {
     syx_sym_state.fuzzer_input_offset = GET_GLOBAL_STATE()->syx_fuzzer_input_offset;
     syx_sym_state.host_symbolized_addr_start = (void*) (((uint8_t*)(GET_GLOBAL_STATE()->shared_payload_buffer_host_location)) + syx_sym_state.fuzzer_input_offset);
 
-    SYX_PRINTF("Symbolic Execution request received!\n");
-    SYX_PRINTF("\t-fuzzer input location: %p\n", GET_GLOBAL_STATE()->shared_payload_buffer_host_location);
-    SYX_PRINTF("\t-fuzzer input location: %p\n", syx_sym_state.host_symbolized_addr_start);
-    SYX_PRINTF("\t-fuzzer input offset: %u\n", GET_GLOBAL_STATE()->syx_fuzzer_input_offset);
-    SYX_PRINTF("\t-len: %u\n", GET_GLOBAL_STATE()->syx_len);
-    SYX_PRINTF("\t-first hex: %2X\n", *(uint8_t*)(syx_sym_state.host_symbolized_addr_start));
+    SYX_DEBUG("Symbolic Execution request received!\n");
+    SYX_DEBUG("\t-fuzzer input location: %p\n", GET_GLOBAL_STATE()->shared_payload_buffer_host_location);
+    SYX_DEBUG("\t-fuzzer input location: %p\n", syx_sym_state.host_symbolized_addr_start);
+    SYX_DEBUG("\t-fuzzer input offset: %u\n", GET_GLOBAL_STATE()->syx_fuzzer_input_offset);
+    SYX_DEBUG("\t-len: %u\n", GET_GLOBAL_STATE()->syx_len);
+    SYX_DEBUG("\t-hexdump: \n");
+    qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location, stderr, "", 32);
 
     //SYX_PRINTF("\tSymbolic memory dump:\n");
 
@@ -108,12 +109,12 @@ void syx_sym_run_end(CPUState* cpu) {
 
     // No new internal run; start a new full run.
     if (!new_input) {
-        // SYX_PRINTF("End of symbolic execution for current symbolic request.\n"
-        //             "Asking for a new task...\n");
+        SYX_DEBUG("End of symbolic execution for current symbolic request.\n"
+                    "Asking for a new task...\n");
         syx_sym_run_start(cpu);
     }
 
-    //SYX_PRINTF("Starting next internal run...\n");
+    SYX_DEBUG("Starting next internal run...\n");
 }
 
 void syx_sym_run_generate_new_inputs(void) {

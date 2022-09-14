@@ -1110,7 +1110,7 @@ for opt do
   ;;
   --disable-debug-tcg) debug_tcg="no"
   ;;
-  --enable-debug-syx) debug_syx="yes"
+  --enable-debug-syx) 
   ;;
   --enable-debug)
       # Enable debugging options that aren't excessively noisy
@@ -1119,6 +1119,7 @@ for opt do
       debug="yes"
       strip_opt="no"
       fortify_source="no"
+      debug_syx="yes"
   ;;
   --enable-sanitizers) sanitizers="yes"
   ;;

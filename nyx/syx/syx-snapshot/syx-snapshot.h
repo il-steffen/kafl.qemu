@@ -1,4 +1,5 @@
 #pragma once
+#ifdef QEMU_SYX
 
 #include "qemu/osdep.h"
 #include "qom/object.h"
@@ -183,3 +184,5 @@ void syx_snapshot_dirty_list_add(hwaddr paddr);
  * @param host_addr The host address where the dirty page is located.
  */
 void syx_snapshot_dirty_list_add_tcg_target(uint64_t dummy, void* host_addr);
+
+#endif

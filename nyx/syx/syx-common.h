@@ -1,4 +1,5 @@
 #pragma once
+#ifdef QEMU_SYX
 
 /**
  * SYX is a project adding several additions to QEMU
@@ -22,11 +23,11 @@
 #include "qemu/osdep.h"
 #include "syx-api.h"
 
-typedef SYX_HC_TYPE target_ulong;
-
 #include "syx-event/syx-event.h"
 #include "syx-snapshot/syx-snapshot.h"
 #include "syx-sym/syx-sym.h"
+
+typedef uint64_t target_ulong;
 
 // Architecture
 typedef enum syx_arch {
@@ -115,3 +116,5 @@ syx_snapshot_t* syx_get_snapshot(void);
 bool syx_is_symbolic(void);
 
 void* get_data_from_target(CPUState* cpu, vaddr virt_addr, size_t len);
+
+#endif

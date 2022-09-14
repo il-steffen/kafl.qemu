@@ -141,8 +141,8 @@ typedef struct auxilary_buffer_result_s{
   uint32_t runtime_sec;
   uint32_t padding_4;
 
-  uint64_t syx_fuzzer_input_offset;
-  uint64_t syx_len;
+  uint32_t syx_fuzzer_input_offset;
+  uint32_t syx_len;
 
   /* more to come */
 } __attribute__((packed)) auxilary_buffer_result_t;

@@ -62,6 +62,7 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "nyx/helpers.h"
 
 #include "nyx/syx/syx-common.h"
+#include "nyx/syx/syx-sym/syx-sym.h"
 
 //#define DEBUG_HPRINTF
 #define HPRINTF_SIZE	0x1000
@@ -124,7 +125,9 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg) {
 			if(!setup_snapshot_once){ 
 				//pt_reset_bitmap();
 				// Nyx snapshot
+#ifdef QEMU_SYX
 				if (!syx_is_symbolic()) {
+#endif
 					coverage_bitmap_reset();
 					request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
 
@@ -149,31 +152,42 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg) {
 					*/
 				// } else {
 				// 	request_fast_vm_reload(GET_GLOBAL_STATE()->reload_state, REQUEST_SAVE_SNAPSHOT_ROOT_FIX_RIP);
+#ifdef QEMU_SYX
 				} else { // Syx snapshot
 					syx_set_snapshot(syx_snapshot_create(cpu, true));
 				}
+#endif
 
 				setup_snapshot_once = true;
 				GET_GLOBAL_STATE()->in_fuzzing_mode = true;
 				set_state_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, 3);
 
+#ifdef QEMU_SYX
 				if (syx_is_symbolic()) {
 					handle_hypercall_kafl_next_payload(cpu, hypercall_arg);
 				}
+#endif
 				//sigprof_enabled = true;
 				//reset_timeout_detector(&GET_GLOBAL_STATE()->timeout_detector);
 			} else{
 				//set_illegal_payload();
+#ifdef QEMU_SYX
 				if (syx_is_symbolic()) {
 					syx_sym_run_start(cpu);
 				} else {
+#endif
 					synchronization_lock();
+#ifdef QEMU_SYX
 				}
+#endif
 				reset_timeout_detector(&GET_GLOBAL_STATE()->timeout_detector);
 				GET_GLOBAL_STATE()->in_fuzzing_mode = true;
 
 
 				//printf("RIP => %lx\n", get_rip(cpu));
+				if (syx_is_symbolic()) {
+					SYX_DEBUG("End of next payload\n");
+				}
 				return true;
 			}
 		}
@@ -197,6 +211,9 @@ static void acquire_print_once(CPUState *cpu){
 
 void handle_hypercall_kafl_acquire(CPUState *cpu, uint64_t hypercall_arg){
 	//return;
+	if (syx_is_symbolic()) {
+		SYX_DEBUG("Start of acquire\n");
+	}
 
 	if(hypercall_enabled){
 		if (!init_state){
@@ -209,6 +226,10 @@ void handle_hypercall_kafl_acquire(CPUState *cpu, uint64_t hypercall_arg){
 			}
 			*/
 		}
+	}
+
+	if (syx_is_symbolic()) {
+		SYX_DEBUG("End of acquire\n");
 	}
 }
 
@@ -376,11 +397,16 @@ void handle_hypercall_kafl_release(CPUState *cpu, uint64_t hypercall_arg){
 				GET_GLOBAL_STATE()->starved = 0;
 			}
 
+#ifdef QEMU_SYX
 			if (syx_is_symbolic()) {
-				SYX_ERROR_REPORT("Symbolic Scope ending Scope not defined. Please define the symbolic execution scope correctly.");
-				SYX_ERROR_REPORT("Hint: use SYM_END hypercall to define the ending scope in the target.");
+				SYX_ERROR("Symbolic Scope ending Scope not defined. Please define the symbolic execution scope correctly.");
+				SYX_ERROR("Hint: use SYM_END hypercall to define the ending scope in the target.");
+				SYX_DEBUG("\t-hexdump: \n");
+				qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location, stderr, "", 32);
+
 				abort();
 			}
+#endif
 
 			if (!is_enabled_tcg_mode()) {
 				synchronization_disable_pt(cpu);
@@ -525,12 +551,16 @@ void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 			//assert(0);
 		}
 #endif
+#ifdef QEMU_SYX
+		// Stop current run if crash found and execute the next one
+		// if available
 		if (syx_is_symbolic()) {
 			SYX_PRINTF("Crashing input found!\n");
 			qemu_mutex_lock_iothread();
             syx_sym_run_end(cpu);
 			qemu_mutex_unlock_iothread();
 		} else {
+#endif
 			if(fast_reload_snapshot_exists(get_fast_reload_snapshot()) && GET_GLOBAL_STATE()->in_fuzzing_mode){
 
 				if(hypercall_arg & 0x8000000000000000ULL){
@@ -561,8 +591,9 @@ void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 			} else{
 				nyx_abort((char*)"Agent has crashed before initializing the fuzzing loop...");
 			}
+#ifdef QEMU_SYX
 		}
-
+#endif
 	}
 }
 
@@ -668,12 +699,14 @@ static void handle_hypercall_kafl_lock(CPUState *cpu, uint64_t hypercall_arg){
 }
 
 static void handle_hypercall_kafl_printf(CPUState *cpu, uint64_t hypercall_arg){
-	read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
-#ifdef DEBUG_HPRINTF
-	fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
-#endif
-	set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
-	synchronization_lock();
+	if (syx_is_symbolic()) {
+		read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
+	#ifdef DEBUG_HPRINTF
+		fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
+	#endif
+		set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
+		synchronization_lock();
+	}
 }
 
 static void handle_hypercall_kafl_user_range_advise(CPUState *cpu, uint64_t hypercall_arg){
@@ -877,6 +910,7 @@ static void handle_hypercall_kafl_persist_page_past_snapshot(CPUState *cpu, uint
 	fast_reload_blacklist_page(get_fast_reload_snapshot(), phys_addr);
 }
 
+#ifdef QEMU_SYX
 static int handle_hypercall_kafl_syx(CPUState* cpu) {
 	qemu_mutex_lock_iothread();
 	nyx_get_registers_fast(cpu);
@@ -895,6 +929,7 @@ static int handle_hypercall_kafl_syx(CPUState* cpu) {
 
 	return ret;
 }
+#endif
 
 int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg){
 	int ret = -1;
@@ -1100,9 +1135,11 @@ int handle_kafl_hypercall(CPUState *cpu, uint64_t hypercall, uint64_t arg){
 			handle_hypercall_kafl_persist_page_past_snapshot(cpu, arg);
 			ret = 0;
 			break;
+#ifdef QEMU_SYX
 		case KVM_EXIT_KAFL_SYX:
 			ret = handle_hypercall_kafl_syx(cpu);
 			break;
+#endif
 	}
 
 	return ret;

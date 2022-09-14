@@ -33,15 +33,15 @@ hypercall/configuration.o \
 hypercall/debug.o \
 state/state.o \
 state/snapshot_state.o \
-syx/syx-common.o\
-syx/syx-snapshot/syx-snapshot.o \
-syx/syx-snapshot/qemu-file-ram.o \
-syx/syx-snapshot/device-save.o \
-syx/syx-event/syx-event.o \
-syx/tcg/i386/helper.o \
 pt.o
 
 # SYX Extension
 obj-$(CONFIG_QEMU_SYX) += \
 syx/syx-sym/syx-sym.o \
-syx/syx-sym/tcg/tcg-runtime-sym.o
+syx/syx-sym/tcg/tcg-runtime-sym.o \
+syx/syx-common.o\
+syx/syx-snapshot/syx-snapshot.o \
+syx/syx-snapshot/qemu-file-ram.o \
+syx/syx-snapshot/device-save.o \
+syx/syx-event/syx-event.o \
+syx/tcg/i386/helper.o

@@ -66,7 +66,13 @@ static bool hc_addr_is_present(syx_event_hc_addr_t* hc_addr, hwaddr addr) {
     return false;
 }
 
-static void ask_symbolic_exec(size_t fuzzer_input_offset, size_t len) {
+static void ask_symbolic_exec(uint32_t fuzzer_input_offset, uint32_t len) {
+    SYX_DEBUG("Symbolic Execution Request:\n");
+    SYX_DEBUG("\t- fuzzer_input_offset: %u\n", fuzzer_input_offset);
+    SYX_DEBUG("\t- len: %u\n", len);
+    SYX_DEBUG("\t- buffer:\n");
+    qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location, stderr, "", 32);
+
     // Set symbolic execution parameters in the result buffer
     set_syx_sym_new_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, fuzzer_input_offset, len);
 
@@ -130,8 +136,9 @@ static void syx_event_handle_async(CPUState* cpu, target_ulong target_opaque) {
         if (syx_sym_fuzz_is_symbolized_input(fuzzer_input_offset, mem_len)) {
                 syx_sym_run_generate_new_inputs();
         } else {
-            SYX_PRINTF("Not initializing symbolic execution\n");
-            SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
+            SYX_ERROR("Not initializing symbolic execution\n");
+            SYX_ERROR("\t- offset symbolized: %u | offset hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_fuzzer_input_offset, fuzzer_input_offset);
+            SYX_ERROR("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
             abort();
         }
     }
@@ -153,6 +160,7 @@ static void patch_hypercall(CPUState* cpu) {
 }
 
 static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {
+    SYX_DEBUG("Going into sync handler\n");
     syx_cmd_event_sync_t* params = SYX_HC_GET_PARAM(syx_cmd_event_sync_t, cpu, target_opaque);
 
     size_t fuzzer_input_offset = params->fuzzer_input_offset;
@@ -165,12 +173,15 @@ static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {
             patch_hypercall(cpu);
         }
     } else {
+        SYX_DEBUG("Here we are...\n");
         if (syx_sym_fuzz_is_symbolized_input(fuzzer_input_offset, mem_len)) {
+            SYX_DEBUG("Starting Symbolic Execution...\n");
             syx_sym_run_generate_new_inputs();
         } else {
             // TODO: just ignore the hypercall since it is not the target symbolic exec...
-            SYX_PRINTF("Not initializing symbolic execution\n");
-            SYX_PRINTF("\t- Len symbolized: %u | Len hypercall: %lu\n\n", GET_GLOBAL_STATE()->syx_len, mem_len);
+            SYX_ERROR("Not initializing symbolic execution");
+            SYX_ERROR("\t- offset symbolized: %u | offset hypercall: %lu", GET_GLOBAL_STATE()->syx_fuzzer_input_offset, fuzzer_input_offset);
+            SYX_ERROR("\t- Len symbolized: %u | Len hypercall: %lu\n", GET_GLOBAL_STATE()->syx_len, mem_len);
             abort();
         }
     }

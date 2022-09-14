@@ -4564,8 +4564,11 @@ int main(int argc, char **argv, char **envp)
     qemu_system_reset(SHUTDOWN_CAUSE_NONE);
     register_global_state();
 
-#ifdef QEMU_NYX
+#ifdef QEMU_SYX
     syx_init(GET_GLOBAL_STATE()->syx_sym_tcg_enabled);
+#endif
+
+#ifdef QEMU_NYX
     fast_reload_init(GET_GLOBAL_STATE()->fast_reload_snapshot);
     
     if (fast_vm_reload){
