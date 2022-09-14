@@ -160,7 +160,6 @@ static void patch_hypercall(CPUState* cpu) {
 }
 
 static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {
-    SYX_DEBUG("Going into sync handler\n");
     syx_cmd_event_sync_t* params = SYX_HC_GET_PARAM(syx_cmd_event_sync_t, cpu, target_opaque);
 
     size_t fuzzer_input_offset = params->fuzzer_input_offset;
@@ -173,9 +172,7 @@ static void syx_event_handle_sync(CPUState* cpu, target_ulong target_opaque) {
             patch_hypercall(cpu);
         }
     } else {
-        SYX_DEBUG("Here we are...\n");
         if (syx_sym_fuzz_is_symbolized_input(fuzzer_input_offset, mem_len)) {
-            SYX_DEBUG("Starting Symbolic Execution...\n");
             syx_sym_run_generate_new_inputs();
         } else {
             // TODO: just ignore the hypercall since it is not the target symbolic exec...

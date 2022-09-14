@@ -185,9 +185,6 @@ bool handle_hypercall_kafl_next_payload(CPUState *cpu, uint64_t hypercall_arg) {
 
 
 				//printf("RIP => %lx\n", get_rip(cpu));
-				if (syx_is_symbolic()) {
-					SYX_DEBUG("End of next payload\n");
-				}
 				return true;
 			}
 		}
@@ -211,10 +208,6 @@ static void acquire_print_once(CPUState *cpu){
 
 void handle_hypercall_kafl_acquire(CPUState *cpu, uint64_t hypercall_arg){
 	//return;
-	if (syx_is_symbolic()) {
-		SYX_DEBUG("Start of acquire\n");
-	}
-
 	if(hypercall_enabled){
 		if (!init_state){
 			acquire_print_once(cpu);
@@ -226,10 +219,6 @@ void handle_hypercall_kafl_acquire(CPUState *cpu, uint64_t hypercall_arg){
 			}
 			*/
 		}
-	}
-
-	if (syx_is_symbolic()) {
-		SYX_DEBUG("End of acquire\n");
 	}
 }
 
@@ -555,7 +544,6 @@ void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 		// Stop current run if crash found and execute the next one
 		// if available
 		if (syx_is_symbolic()) {
-			SYX_PRINTF("Crashing input found!\n");
 			qemu_mutex_lock_iothread();
             syx_sym_run_end(cpu);
 			qemu_mutex_unlock_iothread();
@@ -699,14 +687,12 @@ static void handle_hypercall_kafl_lock(CPUState *cpu, uint64_t hypercall_arg){
 }
 
 static void handle_hypercall_kafl_printf(CPUState *cpu, uint64_t hypercall_arg){
-	if (syx_is_symbolic()) {
-		read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
-	#ifdef DEBUG_HPRINTF
-		fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
-	#endif
-		set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
-		synchronization_lock();
-	}
+	read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
+#ifdef DEBUG_HPRINTF
+	fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
+#endif
+	set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
+	synchronization_lock();
 }
 
 static void handle_hypercall_kafl_user_range_advise(CPUState *cpu, uint64_t hypercall_arg){

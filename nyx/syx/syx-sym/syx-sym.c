@@ -109,12 +109,8 @@ void syx_sym_run_end(CPUState* cpu) {
 
     // No new internal run; start a new full run.
     if (!new_input) {
-        SYX_DEBUG("End of symbolic execution for current symbolic request.\n"
-                    "Asking for a new task...\n");
         syx_sym_run_start(cpu);
     }
-
-    SYX_DEBUG("Starting next internal run...\n");
 }
 
 void syx_sym_run_generate_new_inputs(void) {
