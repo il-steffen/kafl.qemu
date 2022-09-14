@@ -313,7 +313,7 @@ bool remap_payload_buffer(uint64_t virt_guest_addr, CPUState *cpu){
                 //printf("MMAP: %lx\n", mmap((void*)(((uint64_t)block->host) + phys_addr), 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, shared_payload_buffer_fd, (i*x86_64_PAGE_SIZE)));
                 // Dirty trick... To fix.
                 if (i == 0) {
-                    GET_GLOBAL_STATE()->shared_payload_buffer_host_location = (void*)(((uint64_t)block->host) + phys_addr_ram_offset + 4);
+                    GET_GLOBAL_STATE()->shared_payload_buffer_host_location = (void*)(((uint64_t)block->host) + phys_addr_ram_offset + 8);
                 }
 
                 if(mmap((void*)(((uint64_t)block->host) + phys_addr_ram_offset), 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, GET_GLOBAL_STATE()->shared_payload_buffer_fd, (i*x86_64_PAGE_SIZE)) == MAP_FAILED){

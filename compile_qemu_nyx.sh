@@ -77,13 +77,13 @@ configure_qemu()
       $QEMU_CONFIGURE --enable-nyx --enable-sanitizers --enable-debug
       ;;
     "debug_static")
-      $QEMU_CONFIGURE --enable-nyx --enable-debug --enable-nyx-static
+      $QEMU_CONFIGURE --enable-nyx --enable-debug --enable-nyx-static --enable-debug-syx
       ;;
     "static")
       $QEMU_CONFIGURE --enable-nyx --enable-nyx-static
       ;;
     "lto")
-      $QEMU_CONFIGURE --enable-nyx --enable-nyx-static --enable-nyx-flto
+      $QEMU_CONFIGURE --enable-nyx --enable-nyx-static --enable-nyx-flto --enable-debug-syx
       ;;
     *)
       error
