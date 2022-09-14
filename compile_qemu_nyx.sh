@@ -83,7 +83,7 @@ configure_qemu()
       $QEMU_CONFIGURE --enable-nyx --enable-nyx-static
       ;;
     "lto")
-      $QEMU_CONFIGURE --enable-nyx --enable-nyx-static --enable-nyx-flto --enable-debug-syx
+      $QEMU_CONFIGURE --enable-nyx --enable-nyx-static --enable-nyx-flto
       ;;
     *)
       error

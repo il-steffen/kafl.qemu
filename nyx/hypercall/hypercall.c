@@ -544,6 +544,7 @@ void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 		// Stop current run if crash found and execute the next one
 		// if available
 		if (syx_is_symbolic()) {
+			SYX_DEBUG("Found crashing input.\n");
 			qemu_mutex_lock_iothread();
             syx_sym_run_end(cpu);
 			qemu_mutex_unlock_iothread();

@@ -34,6 +34,10 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #include "sysemu/kvm.h"
 #include "nyx/helpers.h"
 
+#ifdef QEMU_SYX
+#include "nyx/syx/syx-misc.h"
+#endif
+
 #define INVALID_ADDRESS 0xFFFFFFFFFFFFFFFFULL
 
 static uint64_t get_48_paging_phys_addr(uint64_t cr3, uint64_t addr, bool read_from_snapshot);
@@ -312,9 +316,11 @@ bool remap_payload_buffer(uint64_t virt_guest_addr, CPUState *cpu){
                 }
                 //printf("MMAP: %lx\n", mmap((void*)(((uint64_t)block->host) + phys_addr), 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, shared_payload_buffer_fd, (i*x86_64_PAGE_SIZE)));
                 // Dirty trick... To fix.
+#ifdef QEMU_SYX
                 if (i == 0) {
                     GET_GLOBAL_STATE()->shared_payload_buffer_host_location = (void*)(((uint64_t)block->host) + phys_addr_ram_offset + 8);
                 }
+#endif
 
                 if(mmap((void*)(((uint64_t)block->host) + phys_addr_ram_offset), 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, GET_GLOBAL_STATE()->shared_payload_buffer_fd, (i*x86_64_PAGE_SIZE)) == MAP_FAILED){
                     fprintf(stderr, "mmap failed!\n");

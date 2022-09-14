@@ -9,6 +9,8 @@
 #define SYX_DEBUG(format, ...)    
 #endif
 
-#define SYX_ERROR(format, ...)   error_report(("[QEMU-SYX] ERROR: " format), ##__VA_ARGS__)
+#define SYX_WARNING(format, ...)   warn_report(("[QEMU-SYX] " format), ##__VA_ARGS__)
+
+#define SYX_ERROR(format, ...)   error_report(("[QEMU-SYX] " format), ##__VA_ARGS__)
 
 #endif
