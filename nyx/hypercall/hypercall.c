@@ -660,7 +660,7 @@ static void handle_hypercall_kafl_kasan(CPUState *cpu, uint64_t hypercall_arg){
 		}
 #endif
 		if(fast_reload_snapshot_exists(get_fast_reload_snapshot())){
-			synchronization_lock_asan_found();
+			synchronization_lock_asan_found(cpu);
 			//synchronization_stop_vm_kasan(cpu);
 		} else{
 			QEMU_PT_PRINTF(CORE_PREFIX, "KASAN detected during initialization of stage 1 or stage 2 loader");

@@ -317,19 +317,37 @@ void synchronization_lock_crash_found(void){
 	in_fuzzing_loop = false;
 }
 
-void synchronization_lock_asan_found(void){
+void synchronization_lock_asan_found(CPUState* cpu){
 	if(!in_fuzzing_loop){
 		fprintf(stderr, "<%d-%ld>\t%s [NOT IN FUZZING LOOP]\n", getpid(), run_counter, __func__);
 		set_success_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, 0);
 	}
 
-	pt_disable(qemu_get_cpu(0), false);
+#ifdef QEMU_SYX
+	if (!syx_is_symbolic()) {
+#endif
+		pt_disable(qemu_get_cpu(0), false);
+		handle_tmp_snapshot_state();
+#ifdef QEMU_SYX
+	}
 
-	handle_tmp_snapshot_state();
-
-	set_asan_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
+	if (syx_is_symbolic()) {
+		SYX_DEBUG("Found ASAN.\n");
+		qemu_mutex_lock_iothread();
+		syx_sym_run_end(cpu);
+		qemu_mutex_unlock_iothread();
+	} else {
+#endif
+		set_asan_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
+#ifdef QEMU_SYX
+	}
 	
-	perform_reload();
+	if (!syx_is_symbolic()) {
+#endif
+		perform_reload();
+#ifdef QEMU_SYX
+	}
+#endif
 
 	//synchronization_lock();
 
