@@ -14,6 +14,7 @@
 #include "qemu/main-loop.h"
 #include "nyx/helpers.h"
 #include "nyx/file_helper.h"
+#include "nyx/syx/syx-common.h"
 
 
 #include "pt.h"
@@ -264,7 +265,6 @@ void synchronization_lock(void){
 	pthread_mutex_unlock(&synchronization_lock_mutex);
 	if (must_relock_iothread) {
 		qemu_mutex_lock_iothread();
-		must_relock_iothread = false;
 	}
 
 	check_auxiliary_config_buffer(GET_GLOBAL_STATE()->auxilary_buffer, &GET_GLOBAL_STATE()->shadow_config);

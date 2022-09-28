@@ -33,6 +33,30 @@ typedef struct syx_sym_state_s {
 
 syx_sym_state_t syx_sym_state = {0};
 
+static void* payload_offset_to_host_addr(uint32_t payload_offset) {
+    return (void*)((uint64_t) GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[(payload_offset / x86_64_PAGE_SIZE)] + (payload_offset & x86_64_PAGE_OFFSET_MASK));
+}
+
+static inline uint32_t get_page_offset(uint64_t value) {
+    return value / x86_64_PAGE_SIZE;
+}
+
+// check whether [payload_offset; payload_offset + len[ is contiguous
+// in host memory.
+static bool payload_range_host_contiguous(uint32_t payload_offset, uint32_t len) {
+    if (len < x86_64_PAGE_SIZE) {
+        return true;
+    }
+
+    for (uint32_t i = get_page_offset(payload_offset); i < get_page_offset(payload_offset + len) - 1; ++i) {
+        if ((uint64_t) GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[i] != ((uint64_t) GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[i + 1]) + x86_64_PAGE_SIZE) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void syx_sym_init(void* opaque) {
     assert(syx_sym_state.syx_sym_output_f != NULL);
 
@@ -40,21 +64,25 @@ void syx_sym_init(void* opaque) {
 }
 
 void syx_sym_run_start(CPUState* cpu) {
-    //SYX_PRINTF("Waiting for symbolic execution request...\n");
+    SYX_PRINTF("Waiting for symbolic execution request...\n");
     set_syx_sym_wait_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
     synchronization_lock();
 
+    assert(payload_range_host_contiguous(GET_GLOBAL_STATE()->syx_fuzzer_input_offset, GET_GLOBAL_STATE()->syx_len));
+
     syx_sym_state.symbolized_input_len = GET_GLOBAL_STATE()->syx_len;
     syx_sym_state.fuzzer_input_offset = GET_GLOBAL_STATE()->syx_fuzzer_input_offset;
-    syx_sym_state.host_symbolized_addr_start = (void*) (((uint8_t*)(GET_GLOBAL_STATE()->shared_payload_buffer_host_location)) + syx_sym_state.fuzzer_input_offset);
+    syx_sym_state.host_symbolized_addr_start = (void*) payload_offset_to_host_addr(syx_sym_state.fuzzer_input_offset);
 
     SYX_DEBUG("Symbolic Execution request received!\n");
-    SYX_DEBUG("\t-fuzzer input location: %p\n", GET_GLOBAL_STATE()->shared_payload_buffer_host_location);
+    SYX_DEBUG("\t-fuzzer input location: %p\n", GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[0]);
     SYX_DEBUG("\t-fuzzer input location: %p\n", syx_sym_state.host_symbolized_addr_start);
     SYX_DEBUG("\t-fuzzer input offset: %u\n", GET_GLOBAL_STATE()->syx_fuzzer_input_offset);
     SYX_DEBUG("\t-len: %u\n", GET_GLOBAL_STATE()->syx_len);
     SYX_DEBUG("\t-hexdump: \n");
-    qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location, stderr, "", 32);
+#ifdef CONFIG_DEBUG_SYX
+    qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[0], stderr, "", 32);
+#endif
 
     //SYX_PRINTF("\tSymbolic memory dump:\n");
 

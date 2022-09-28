@@ -90,7 +90,7 @@ typedef struct qemu_nyx_state_s{
 
     int shared_payload_buffer_fd;
     uint32_t shared_payload_buffer_size;
-    void* shared_payload_buffer_host_location;
+    void** shared_payload_buffer_host_location_pg;
 
     int shared_ijon_bitmap_fd;
     uint32_t shared_ijon_bitmap_size;

@@ -123,7 +123,7 @@ void state_init_global(void){
     global_state.shared_bitmap_ptr = NULL;
 
     global_state.shared_payload_buffer_fd = 0;
-    global_state.shared_payload_buffer_host_location = 0;
+    global_state.shared_payload_buffer_host_location_pg = NULL;
     global_state.shared_payload_buffer_size = 0;
 
     global_state.shared_ijon_bitmap_fd = 0;

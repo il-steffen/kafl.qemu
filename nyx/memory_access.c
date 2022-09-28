@@ -42,9 +42,6 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 
 static uint64_t get_48_paging_phys_addr(uint64_t cr3, uint64_t addr, bool read_from_snapshot);
 
-#define x86_64_PAGE_SIZE        0x1000
-#define x86_64_PAGE_MASK        ~(x86_64_PAGE_SIZE - 1)
-
 mem_mode_t get_current_mem_mode(CPUState *cpu){
 	nyx_get_registers(cpu);
 
@@ -295,9 +292,12 @@ bool remap_payload_buffer(uint64_t virt_guest_addr, CPUState *cpu){
     assert(GET_GLOBAL_STATE()->shared_payload_buffer_fd && GET_GLOBAL_STATE()->shared_payload_buffer_size);
     assert(GET_GLOBAL_STATE()->shared_payload_buffer_size % x86_64_PAGE_SIZE == 0);
     RAMBlock *block;
+    uint32_t nb_pg = GET_GLOBAL_STATE()->shared_payload_buffer_size / x86_64_PAGE_SIZE;
     refresh_kvm_non_dirty(cpu);
 
-    for(uint32_t i = 0; i < (GET_GLOBAL_STATE()->shared_payload_buffer_size/x86_64_PAGE_SIZE); i++){
+    GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg = g_new(void*, nb_pg);
+
+    for(uint32_t i = 0; i < nb_pg; i++){
         //MemTxAttrs attrs = MEMTXATTRS_UNSPECIFIED;
         //hwaddr phys_addr = cpu_get_phys_page_attrs_debug(cpu, ((virt_guest_addr+(i*x86_64_PAGE_SIZE)) & x86_64_PAGE_MASK), &attrs);
         uint64_t phys_addr = get_paging_phys_addr(cpu, GET_GLOBAL_STATE()->parent_cr3, ((virt_guest_addr+(i*x86_64_PAGE_SIZE)) & x86_64_PAGE_MASK));
@@ -317,9 +317,7 @@ bool remap_payload_buffer(uint64_t virt_guest_addr, CPUState *cpu){
                 //printf("MMAP: %lx\n", mmap((void*)(((uint64_t)block->host) + phys_addr), 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, shared_payload_buffer_fd, (i*x86_64_PAGE_SIZE)));
                 // Dirty trick... To fix.
 #ifdef QEMU_SYX
-                if (i == 0) {
-                    GET_GLOBAL_STATE()->shared_payload_buffer_host_location = (void*)(((uint64_t)block->host) + phys_addr_ram_offset + 8);
-                }
+                GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[i] = (void*) (((uint64_t)block->host) + phys_addr_ram_offset);
 #endif
 
                 if(mmap((void*)(((uint64_t)block->host) + phys_addr_ram_offset), 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, GET_GLOBAL_STATE()->shared_payload_buffer_fd, (i*x86_64_PAGE_SIZE)) == MAP_FAILED){

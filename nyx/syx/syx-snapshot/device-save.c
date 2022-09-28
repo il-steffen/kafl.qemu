@@ -64,11 +64,20 @@ device_save_state_t* device_save_all(void) {
 }
 
 void device_restore_all(device_save_state_t* device_save_state) {
+	bool must_unlock_iothread = false;
     QEMUFile* f = qemu_file_ram_read_new(device_save_state->save_buffer, QEMU_FILE_RAM_LIMIT);
     
-    qemu_load_device_state(f);
+	if (!qemu_mutex_iothread_locked()) {
+		qemu_mutex_lock_iothread();
+		must_unlock_iothread = true;
+	}
 
     qemu_load_device_state(f);
+ 
+	if (must_unlock_iothread) {
+		qemu_mutex_unlock_iothread();
+	}
+
     qemu_fclose(f);
 }
 

@@ -31,6 +31,10 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 #define MEM_SPLIT_START 0x0C0000000
 #define MEM_SPLIT_END   0x100000000
 
+#define x86_64_PAGE_SIZE        0x1000
+#define x86_64_PAGE_OFFSET_MASK (x86_64_PAGE_SIZE - 1)
+#define x86_64_PAGE_MASK        ~(x86_64_PAGE_SIZE - 1)
+
 /* i386 pc_piix low_mem address translation */
 #define address_to_ram_offset(offset)  (offset >= MEM_SPLIT_END ? (offset - MEM_SPLIT_END) + MEM_SPLIT_START : offset)
 #define ram_offset_to_address(offset)  (offset >= MEM_SPLIT_START ? (offset - MEM_SPLIT_START) + MEM_SPLIT_END : offset)
