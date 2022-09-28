@@ -2,6 +2,12 @@
 #ifdef QEMU_SYX
 
 /**
+ * This file can safely be included anywhere SYX API
+ * must be used. It should serve as the entry header
+ * file to use SYX API in QEMU directly.
+ */
+
+/**
  * SYX is a project adding several additions to QEMU
  * aiming at supporting Symbolic Execution (or more
  * precisely Concolic Execution) in QEMU (full emulation).

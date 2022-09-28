@@ -1,5 +1,22 @@
 #pragma once
 
+/**
+ * SYX API
+ * 
+ * This file should be the only one required to SYX in
+ * external programs. It only requires a few libc
+ * header files.
+ * 
+ * It it usually copied in the target project to
+ * use as a convenient way to communicate with
+ * SYX. A version number is checked in QEMU
+ * to ensure the API is up-to-date with the
+ * QEMU version. In case the version number
+ * is wrong, qemu will exit and warn the user.
+ * In that case, please update your SYX api header
+ * file.
+ */
+
 // Useful includes. May be necessary to change them'
 // depending on the compilation environment.
 #include "stdint.h"
