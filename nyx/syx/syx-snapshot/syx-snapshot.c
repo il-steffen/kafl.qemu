@@ -185,7 +185,14 @@ static syx_snapshot_ramblock_t* find_ramblock(syx_snapshot_root_t* root, char* i
 
 static void restore_page_from_root(syx_snapshot_root_t* root, MemoryRegion* mr, hwaddr addr) {
     MemoryRegionSection mr_section = memory_region_find(mr, addr, syx_snapshot_state.page_size);
-    assert(mr_section.size != 0 && mr_section.mr != NULL);
+
+    if (mr_section.size == 0) {
+        assert(mr_section.mr == NULL);
+
+        SYX_WARNING("Did not found a memory region while restoring the address %p from root snapshot.\n", (void*) addr);
+        return;
+    }
+
     if (mr_section.mr->ram) {
         syx_snapshot_ramblock_t* ram_block = find_ramblock(root, mr_section.mr->ram_block->idstr);
         assert(ram_block != NULL);

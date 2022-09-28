@@ -86,6 +86,7 @@ void syx_sym_setup_workdir(char* workdir) {
 
 static void flush_sym_results(void) {
     size_t nb_flush = _sym_flush_results();
+
     if (nb_flush > 0) {
         set_syx_sym_flush_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer);
         synchronization_lock();
@@ -95,6 +96,28 @@ static void flush_sym_results(void) {
 static void post_run_handler(void) {
     flush_sym_results();
     //_sym_print_deps();
+}
+
+void syx_sym_hexdump_current_input(void) {
+    SYX_DEBUG("== Current input hexdump ==");
+
+    uint32_t nb_bytes_to_print = 50;
+
+    uint32_t nb_pages = (nb_bytes_to_print / x86_64_PAGE_SIZE);
+
+    if (nb_bytes_to_print > 0 && nb_bytes_to_print % x86_64_PAGE_SIZE != 0) {
+        nb_pages++;
+    }
+
+    {
+        uint32_t nb_remaining_bytes = nb_bytes_to_print;
+        
+        for (uint32_t i = 0; i < nb_pages; ++i) {
+            qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[i], stderr, "[SYX INPUT] ", MIN(nb_remaining_bytes, x86_64_PAGE_SIZE));
+            nb_remaining_bytes -= x86_64_PAGE_SIZE;
+        }
+        // nb_remaining_bytes value is undefined from this point onwards
+    }
 }
 
 void syx_sym_run_end(CPUState* cpu) {

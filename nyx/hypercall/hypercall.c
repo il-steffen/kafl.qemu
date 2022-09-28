@@ -388,12 +388,10 @@ void handle_hypercall_kafl_release(CPUState *cpu, uint64_t hypercall_arg){
 
 #ifdef QEMU_SYX
 			if (syx_is_symbolic()) {
-				SYX_ERROR("Symbolic Scope ending Scope not defined. Please define the symbolic execution scope correctly.");
-				SYX_ERROR("Hint: use SYM_END hypercall to define the ending scope in the target.");
-				SYX_DEBUG("\t-hexdump: \n");
-				qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location, stderr, "", 32);
-
-				abort();
+				SYX_WARNING("Symbolic Scope ending Scope not well defined. You may experience huge performance issues.");
+				SYX_WARNING("Hint: use SYM_END hypercall to define the ending scope in the target.");
+				
+				syx_sym_run_end(cpu);
 			}
 #endif
 
@@ -546,6 +544,9 @@ void handle_hypercall_kafl_panic(CPUState *cpu, uint64_t hypercall_arg){
 		if (syx_is_symbolic()) {
 			SYX_DEBUG("Found crashing input.\n");
 			qemu_mutex_lock_iothread();
+#ifdef CONFIG_DEBUG_SYX
+			syx_sym_hexdump_current_input();
+#endif
             syx_sym_run_end(cpu);
 			qemu_mutex_unlock_iothread();
 		} else {
@@ -688,12 +689,18 @@ static void handle_hypercall_kafl_lock(CPUState *cpu, uint64_t hypercall_arg){
 }
 
 static void handle_hypercall_kafl_printf(CPUState *cpu, uint64_t hypercall_arg){
-	read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
-#ifdef DEBUG_HPRINTF
-	fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
+#ifdef CONFIG_DEBUG_SYX
+	if (syx_is_symbolic()) {
 #endif
-	set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
-	synchronization_lock();
+		read_virtual_memory(hypercall_arg, (uint8_t*)hprintf_buffer, HPRINTF_SIZE, cpu);
+#ifdef DEBUG_HPRINTF
+		fprintf(stderr, "%s %s\n", __func__, hprintf_buffer);
+#endif
+		set_hprintf_auxiliary_buffer(GET_GLOBAL_STATE()->auxilary_buffer, hprintf_buffer, strnlen(hprintf_buffer, HPRINTF_SIZE));
+		synchronization_lock();
+#ifdef CONFIG_DEBUG_SYX
+		}
+#endif
 }
 
 static void handle_hypercall_kafl_user_range_advise(CPUState *cpu, uint64_t hypercall_arg){

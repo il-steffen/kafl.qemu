@@ -71,7 +71,9 @@ static void ask_symbolic_exec(uint32_t fuzzer_input_offset, uint32_t len) {
     SYX_DEBUG("\t- fuzzer_input_offset: %u\n", fuzzer_input_offset);
     SYX_DEBUG("\t- len: %u\n", len);
     SYX_DEBUG("\t- buffer:\n");
-    qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location, stderr, "", 32);
+#ifdef CONFIG_DEBUG_SYX
+    qemu_hexdump(GET_GLOBAL_STATE()->shared_payload_buffer_host_location_pg[0], stderr, "", 32);
+#endif
 
     // Set symbolic execution parameters in the result buffer
     set_syx_sym_new_auxiliary_result_buffer(GET_GLOBAL_STATE()->auxilary_buffer, fuzzer_input_offset, len);

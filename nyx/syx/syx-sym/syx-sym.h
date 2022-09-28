@@ -36,4 +36,7 @@ void syx_sym_run_end(CPUState* cpu);
 // Input generation is automatically diabled
 // At the end of a run (being internal or not)
 void syx_sym_run_generate_new_inputs(void);
+
+// Debug print of the input buffer
+void syx_sym_hexdump_current_input(void);
 #endif

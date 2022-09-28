@@ -1737,6 +1737,9 @@ static inline void tcg_out_tlb_load(TCGContext *s, TCGReg addrlo, TCGReg addrhi,
                          TLB_MASK_TABLE_OFS(mem_index) +
                          offsetof(CPUTLBDescFast, table));
 
+    /* r0 contains the host address of the TLB entry corresponding
+       to the addr input.   */
+
     /* If the required alignment is at least as large as the access, simply
        copy the address and mask.  For lesser alignments, check that we don't
        cross pages for the complete access.  */
@@ -1747,6 +1750,9 @@ static inline void tcg_out_tlb_load(TCGContext *s, TCGReg addrlo, TCGReg addrhi,
     }
     tlb_mask = (target_ulong)TARGET_PAGE_MASK | a_mask;
     tgen_arithi(s, ARITH_AND + trexw, r1, tlb_mask, 0);
+
+    /* r1 contains the virtual address supposed to be stored at r0
+       if a hit must happen.    */ 
 
     /* cmp 0(r0), r1 */
     tcg_out_modrm_offset(s, OPC_CMP_GvEv + trexw, r1, r0, which);
